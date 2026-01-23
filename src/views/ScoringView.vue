@@ -1,9 +1,9 @@
 <template>
   <div class="max-w-2xl mx-auto pb-24">
-    <div class="mb-8 p-6 bg-gradient-to-br from-blue-700 to-indigo-800 rounded-3xl text-white shadow-xl relative overflow-hidden">
+    <div class="mb-8 p-6 bg-gradient-to-br from-rose-700 to-rose-900 rounded-3xl text-white shadow-xl relative overflow-hidden">
       <div class="relative z-10">
-        <h2 class="text-2xl font-extrabold tracking-tight">绩效打分工作台</h2>
-        <p class="text-blue-100 text-sm mt-1 opacity-90">请选择员工并录入表现项</p>
+        <h2 class="text-2xl font-extrabold tracking-tight">绩效考评工作台</h2>
+        <p class="text-rose-100 text-sm mt-1 opacity-90">输入正数分值，系统将自动计入扣分</p>
       </div>
       <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
     </div>
@@ -15,25 +15,25 @@
             v-model="searchStaffQuery"
             @input="debouncedSearchStaff"
             type="text"
-            placeholder="搜索工号或姓名..."
+            placeholder="搜索员工姓名或工号..."
             class="w-full pl-12 pr-4 py-4 bg-transparent text-gray-700 placeholder-gray-400 outline-none font-medium"
           />
-          <div class="absolute left-4 top-4 text-indigo-500">
+          <div class="absolute left-4 top-4 text-rose-500">
             <SearchIcon :size="20" />
           </div>
         </div>
       </div>
 
       <div v-if="staffSearchResults && staffSearchResults.length > 0 && !selectedStaff"
-           class="absolute w-full mt-2 bg-white rounded-2xl shadow-xl border border-gray-50 overflow-hidden divide-y divide-gray-50 z-50">
+           class="absolute w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-50 overflow-hidden divide-y divide-gray-50 z-50">
         <div
           v-for="staff in staffSearchResults"
           :key="staff.xft_user_id"
           @click="selectStaff(staff)"
-          class="p-4 cursor-pointer hover:bg-indigo-50 transition-colors flex items-center"
+          class="p-4 cursor-pointer hover:bg-rose-50 transition-colors flex items-center"
         >
-          <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mr-3">
-            {{ staff.name ? staff.name.charAt(0) : '?' }}
+          <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold mr-3">
+            {{ staff.name.charAt(0) }}
           </div>
           <div>
             <div class="font-bold text-gray-800">{{ staff.name }}</div>
@@ -44,55 +44,66 @@
     </div>
 
     <Transition name="fade">
-      <div v-if="selectedStaff" class="mb-8 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
+      <div v-if="selectedStaff" class="mb-8 p-4 bg-rose-50 rounded-2xl border border-rose-100 flex items-center justify-between shadow-sm">
         <div class="flex items-center">
-          <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg mr-4">
+          <div class="w-12 h-12 rounded-2xl bg-rose-600 flex items-center justify-center text-white shadow-lg mr-4">
             <UserIcon :size="24" />
           </div>
           <div>
-            <div class="text-xs text-indigo-400 font-bold uppercase tracking-wider">当前考核对象</div>
-            <div class="text-lg font-black text-indigo-900">{{ selectedStaff.name }}</div>
+            <div class="text-[10px] text-rose-400 font-black uppercase tracking-widest">当前被考核人</div>
+            <div class="text-lg font-black text-rose-900">{{ selectedStaff.name }}</div>
           </div>
         </div>
-        <button @click="clearSelectedStaff" class="p-2 hover:bg-white rounded-xl text-indigo-400 transition-colors">
+        <button @click="clearSelectedStaff" class="p-2 hover:bg-white rounded-xl text-rose-400 transition-colors">
           <XIcon :size="20" />
         </button>
       </div>
     </Transition>
 
-    <div v-if="loadingItems" class="py-10 text-center text-gray-400 font-medium">
-       正在加载考核标准...
+    <div v-if="loadingItems" class="py-20 text-center text-gray-400 font-bold italic animate-pulse">
+      正在调取 150 项考核指标...
     </div>
 
     <div v-else class="space-y-4">
       <div
         v-for="item in items"
         :key="item.id"
-        class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex justify-between items-center group hover:shadow-md transition-all active:scale-[0.98]"
+        class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center group hover:shadow-md transition-all"
       >
-        <div class="flex-1 border-l-4 border-transparent group-hover:border-indigo-500 pl-4 transition-all text-left">
-          <div class="text-sm font-bold text-gray-400 uppercase tracking-tighter mb-1">{{ item.category }}</div>
-          <div class="text-gray-900 font-extrabold text-lg">{{ item.sub_category }}</div>
-          <div class="text-sm text-gray-400 mt-1 line-clamp-1 italic">{{ item.description || '暂无说明' }}</div>
+        <div class="flex-1 mb-4 md:mb-0 pr-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full uppercase">{{ item.category }}</span>
+          </div>
+          <div class="text-gray-900 font-black text-lg leading-tight">{{ item.sub_category }}</div>
+          <div class="text-sm text-gray-400 mt-2 line-clamp-2">{{ item.description || '无详细描述' }}</div>
+          <div class="mt-2 text-xs font-bold text-gray-300 uppercase tracking-tighter">
+            扣分参考上限: {{ item.score_impact }} 分
+          </div>
         </div>
 
-        <div class="flex flex-col items-end ml-4">
-          <div :class="item.score_impact < 0 ? 'text-rose-500 bg-rose-50' : 'text-emerald-500 bg-emerald-50'"
-               class="px-3 py-1 rounded-full font-black text-sm mb-3">
-            {{ item.score_impact > 0 ? '+' : '' }}{{ item.score_impact }}
+        <div class="flex items-center gap-3 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0">
+          <div
+            class="flex-1 md:flex-none flex items-center bg-gray-50 rounded-2xl px-3 border-2 transition-all"
+            :class="item.temp_input > item.score_impact ? 'border-orange-400 bg-orange-50' : 'border-transparent focus-within:border-rose-500'"
+          >
+            <span class="text-rose-600 font-black">-</span>
+            <input
+              type="number"
+              v-model.number="item.temp_input"
+              :placeholder="item.score_impact"
+              class="w-16 bg-transparent border-none focus:ring-0 text-center font-black text-rose-600 py-3"
+            />
+            <span class="text-gray-400 text-xs font-bold">分</span>
           </div>
+
           <button
             @click="submitScore(item)"
-            :disabled="!selectedStaff"
-            class="bg-gray-900 text-white px-6 py-2 rounded-xl text-sm font-bold shadow-lg shadow-gray-200 disabled:bg-gray-100 disabled:text-gray-300 disabled:shadow-none hover:bg-indigo-600 transition-all"
+            :disabled="!selectedStaff || !item.temp_input"
+            class="bg-gray-900 text-white px-6 py-3.5 rounded-2xl text-xs font-black shadow-xl disabled:bg-gray-100 disabled:text-gray-300 disabled:shadow-none hover:bg-rose-600 transition-all active:scale-95"
           >
             确认提交
           </button>
         </div>
-      </div>
-
-      <div v-if="!loadingItems && items.length === 0" class="py-20 text-center text-gray-400">
-        <p>暂无考核数据，请在管理后台导入 Excel</p>
       </div>
     </div>
   </div>
@@ -103,37 +114,28 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '../composables/useSupabase'
 import { SearchIcon, UserIcon, XIcon } from 'lucide-vue-next'
 
-// --- 状态初始化 (防止 length 报错的关键) ---
 const searchStaffQuery = ref('')
 const selectedStaff = ref(null)
-const staffSearchResults = ref([]) // 必须初始化为空数组
-const items = ref([])              // 必须初始化为空数组
+const staffSearchResults = ref([])
+const items = ref([])
 const loadingItems = ref(false)
 
-// --- 员工搜索逻辑 ---
+// --- 搜索逻辑 ---
 let debounceTimeout = null
-
-const fetchStaff = async (query) => {
-  const { data, error } = await supabase
-    .from('staff_cache')
-    .select('*')
-    .or(`name.ilike.%${query}%,xft_user_id.ilike.%${query}%`)
-    .limit(5)
-
-  if (error) {
-    console.error('搜索员工失败:', error.message)
-    return
-  }
-  staffSearchResults.value = data || []
-}
-
 const debouncedSearchStaff = () => {
   clearTimeout(debounceTimeout)
   if (searchStaffQuery.value.length < 2) {
     staffSearchResults.value = []
     return
   }
-  debounceTimeout = setTimeout(() => fetchStaff(searchStaffQuery.value), 300)
+  debounceTimeout = setTimeout(async () => {
+    const { data } = await supabase
+      .from('staff_cache')
+      .select('*')
+      .or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`)
+      .limit(5)
+    staffSearchResults.value = data || []
+  }, 300)
 }
 
 const selectStaff = (staff) => {
@@ -147,51 +149,57 @@ const clearSelectedStaff = () => {
   searchStaffQuery.value = ''
 }
 
-// --- 考核项加载 ---
+// --- 加载考核项 ---
 const fetchItems = async () => {
   loadingItems.value = true
-  try {
-    const { data, error } = await supabase
-      .from('scoring_items')
-      .select('*')
-      .order('category', { ascending: true })
-
-    if (error) throw error
-    items.value = data || []
-  } catch (err) {
-    console.error('加载考核项失败:', err.message)
-  } finally {
-    loadingItems.value = false
-  }
+  const { data } = await supabase.from('scoring_items').select('*').order('category')
+  // 核心：映射数据，增加一个 temp_input 用于双向绑定输入框
+  items.value = (data || []).map(i => ({ ...i, temp_input: null }))
+  loadingItems.value = false
 }
 
-// --- 提交打分 ---
+// --- 提交打分逻辑 (重点) ---
 const submitScore = async (item) => {
-  if (!selectedStaff.value) return
+  if (!selectedStaff.value || !item.temp_input) return
+
+  // 1. 上限预警逻辑
+  if (item.temp_input > item.score_impact) {
+    const proceed = confirm(`注意：该项标准最高扣 ${item.score_impact} 分，当前输入为 ${item.temp_input} 分。是否强制提交？`)
+    if (!proceed) return
+  }
+
+  // 2. 转换为负值
+  const finalScore = -Math.abs(item.temp_input)
 
   try {
     const { error } = await supabase.from('performance_logs').insert({
       staff_id: selectedStaff.value.xft_user_id,
       item_id: item.id,
-      final_score: item.score_impact,
-      operator_name: '管理员', // 后续可接入登录系统
+      final_score: finalScore,
+      operator_name: '管理员',
       sync_status: 'pending'
     })
 
     if (error) throw error
-    alert(`已为 ${selectedStaff.value.name} 登记 ${item.score_impact} 分`)
+
+    // 成功反馈
+    alert(`已扣除 ${selectedStaff.value.name} ${item.temp_input} 分`)
+    item.temp_input = null // 提交后清空输入
   } catch (err) {
-    alert('提交失败，请确认数据库表 performance_logs 是否存在')
     console.error(err)
+    alert('提交失败，请检查数据库连接')
   }
 }
 
-onMounted(() => {
-  fetchItems()
-})
+onMounted(fetchItems)
 </script>
 
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+/* 移除 Chrome/Safari 的输入框箭头 */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* 移除 Firefox 的输入框箭头 */
+input[type=number] { -moz-appearance: textfield; }
 </style>
