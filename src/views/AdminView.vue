@@ -1,91 +1,107 @@
 <template>
-  <div class="max-w-5xl mx-auto pb-24 space-y-8">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
-        <div>
-          <p class="text-sm text-gray-400 font-medium">考核标准总数</p>
-          <p class="text-2xl font-black text-gray-800">{{ items.length }} 项</p>
-        </div>
-        <div class="p-3 bg-blue-50 text-blue-600 rounded-2xl"><BookOpenIcon :size="24" /></div>
+  <div class="max-w-2xl mx-auto pb-24">
+    <div class="mb-8 p-6 bg-gradient-to-br from-indigo-700 to-blue-800 rounded-3xl text-white shadow-xl relative overflow-hidden">
+      <div class="relative z-10">
+        <h2 class="text-2xl font-extrabold tracking-tight">绩效打分工作台</h2>
+        <p class="text-blue-100 text-sm mt-1 opacity-90">录入分值将直接计入扣分统计</p>
       </div>
+      <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="mb-8 group relative">
+      <div class="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 transition-all group-focus-within:shadow-indigo-100 group-focus-within:border-indigo-200">
+        <div class="relative">
+          <input
+            v-model="searchStaffQuery"
+            @input="debouncedSearchStaff"
+            type="text"
+            placeholder="搜索员工姓名或工号..."
+            class="w-full pl-12 pr-4 py-4 bg-transparent text-gray-700 placeholder-gray-400 outline-none font-medium"
+          />
+          <div class="absolute left-4 top-4 text-indigo-500">
+            <SearchIcon :size="20" />
+          </div>
+        </div>
       </div>
 
-    <div class="flex flex-col md:flex-row gap-4 justify-between items-end">
-      <div class="flex gap-2">
-        <button @click="openAddModal" class="px-6 py-3 bg-gray-900 text-white rounded-2xl text-sm font-bold flex items-center shadow-lg hover:bg-gray-800 transition-all">
-          <PlusIcon :size="18" class="mr-2" /> 新增指标
+      <div v-if="staffSearchResults && staffSearchResults.length > 0 && !selectedStaff"
+           class="absolute w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-50 overflow-hidden divide-y divide-gray-50 z-50">
+        <div
+          v-for="staff in staffSearchResults"
+          :key="staff.xft_user_id"
+          @click="selectStaff(staff)"
+          class="p-4 cursor-pointer hover:bg-indigo-50 transition-colors flex items-center"
+        >
+          <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mr-3">
+            {{ staff.name.charAt(0) }}
+          </div>
+          <div>
+            <div class="font-bold text-gray-800">{{ staff.name }}</div>
+            <div class="text-xs text-gray-400">{{ staff.dept_name }} · {{ staff.job_title }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <Transition name="fade">
+      <div v-if="selectedStaff" class="mb-8 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
+        <div class="flex items-center">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg mr-4">
+            <UserIcon :size="24" />
+          </div>
+          <div>
+            <div class="text-[10px] text-indigo-400 font-black uppercase tracking-widest">当前考评对象</div>
+            <div class="text-lg font-black text-indigo-900">{{ selectedStaff.name }}</div>
+          </div>
+        </div>
+        <button @click="clearSelectedStaff" class="p-2 hover:bg-white rounded-xl text-indigo-400 transition-colors">
+          <XIcon :size="20" />
         </button>
-        <label class="px-6 py-3 bg-emerald-600 text-white rounded-2xl text-sm font-bold flex items-center shadow-lg hover:bg-emerald-700 cursor-pointer transition-all">
-          <FileUpIcon :size="18" class="mr-2" /> 导入 Excel
-          <input type="file" class="hidden" @change="handleFileUpload" accept=".xlsx, .xls" />
-        </label>
       </div>
+    </Transition>
+
+    <div v-if="loadingItems" class="py-20 text-center text-gray-400 font-bold italic animate-pulse">
+      正在加载考核指标...
     </div>
 
-    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-      <table class="w-full text-left border-collapse">
-        <thead class="bg-gray-50 border-b border-gray-100 text-gray-400 text-xs font-black uppercase tracking-widest">
-          <tr>
-            <th class="px-6 py-4">分类/指标</th>
-            <th class="px-6 py-4 text-center">分值</th>
-            <th class="px-6 py-4">描述</th>
-            <th class="px-6 py-4 text-right">操作</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-50">
-          <tr v-for="item in items" :key="item.id" class="hover:bg-gray-50/50 transition-colors group">
-            <td class="px-6 py-4">
-              <span class="text-[10px] text-indigo-500 font-bold px-2 py-0.5 bg-indigo-50 rounded-full">{{ item.category }}</span>
-              <div class="text-gray-800 font-bold mt-1">{{ item.sub_category }}</div>
-            </td>
-            <td class="px-6 py-4 text-center">
-              <span :class="item.score_impact < 0 ? 'text-rose-500 bg-rose-50' : 'text-emerald-500 bg-emerald-50'" class="px-3 py-1 rounded-full font-black text-xs">
-                {{ item.score_impact > 0 ? '+' : '' }}{{ item.score_impact }}
-              </span>
-            </td>
-            <td class="px-6 py-4">
-              <p class="text-sm text-gray-400 line-clamp-1 italic">{{ item.description || '-' }}</p>
-            </td>
-            <td class="px-6 py-4 text-right space-x-2">
-              <button @click="editItem(item)" class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
-                <EditIcon :size="18" />
-              </button>
-              <button @click="deleteItem(item.id)" class="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all">
-                <Trash2Icon :size="18" />
-              </button>
-            </td>
-          </tr>
-          <tr v-if="items.length === 0">
-            <td colspan="4" class="py-20 text-center text-gray-400">暂无数据，请尝试导入或新增</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div v-if="showModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl">
-        <h3 class="text-xl font-black text-gray-800 mb-6">{{ isEdit ? '修改考核项' : '新增考核项' }}</h3>
-        <div class="space-y-4">
-          <div>
-            <label class="text-xs font-bold text-gray-400 uppercase">大类 (如：考勤类)</label>
-            <input v-model="form.category" type="text" class="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500" />
+    <div v-else class="space-y-4">
+      <div
+        v-for="item in items"
+        :key="item.id"
+        class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center group hover:shadow-md transition-all"
+      >
+        <div class="flex-1 mb-4 md:mb-0 pr-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full uppercase">{{ item.category }}</span>
           </div>
-          <div>
-            <label class="text-xs font-bold text-gray-400 uppercase">细项指标</label>
-            <input v-model="form.sub_category" type="text" class="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div>
-            <label class="text-xs font-bold text-gray-400 uppercase">分值影响 (正数加分，负数扣分)</label>
-            <input v-model.number="form.score_impact" type="number" class="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div>
-            <label class="text-xs font-bold text-gray-400 uppercase">详细描述</label>
-            <textarea v-model="form.description" class="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-indigo-500" rows="3"></textarea>
+          <div class="text-gray-900 font-black text-lg leading-tight">{{ item.sub_category }}</div>
+          <div class="text-sm text-gray-400 mt-2 line-clamp-2">{{ item.description || '无详细描述' }}</div>
+          <div class="mt-3 flex items-center text-xs font-bold text-gray-300 uppercase tracking-tighter">
+            <InfoIcon :size="14" class="mr-1" /> 扣分上限参考: {{ item.score_impact }} 分
           </div>
         </div>
-        <div class="mt-8 flex gap-3">
-          <button @click="showModal = false" class="flex-1 py-3 text-sm font-bold text-gray-400 hover:bg-gray-50 rounded-2xl">取消</button>
-          <button @click="saveItem" class="flex-1 py-3 text-sm font-bold bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100">保存提交</button>
+
+        <div class="flex items-center gap-3 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0">
+          <div
+            class="flex-1 md:flex-none flex items-center bg-gray-50 rounded-2xl px-4 border-2 transition-all"
+            :class="item.temp_input > item.score_impact ? 'border-orange-400 bg-orange-50' : 'border-transparent focus-within:border-indigo-500'"
+          >
+            <input
+              type="number"
+              v-model.number="item.temp_input"
+              :placeholder="item.score_impact"
+              class="w-16 bg-transparent border-none focus:ring-0 text-center font-black text-gray-800 py-3"
+            />
+            <span class="text-gray-400 text-xs font-bold ml-1">分</span>
+          </div>
+
+          <button
+            @click="submitScore(item)"
+            :disabled="!selectedStaff || !item.temp_input"
+            class="bg-indigo-600 text-white px-6 py-3.5 rounded-2xl text-xs font-black shadow-xl shadow-indigo-100 disabled:bg-gray-100 disabled:text-gray-300 disabled:shadow-none hover:bg-indigo-700 transition-all active:scale-95"
+          >
+            提交扣分
+          </button>
         </div>
       </div>
     </div>
@@ -95,78 +111,89 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { supabase } from '../composables/useSupabase'
-import * as XLSX from 'xlsx'
-import {
-  PlusIcon, FileUpIcon, EditIcon,
-  Trash2Icon, BookOpenIcon
-} from 'lucide-vue-next'
+import { SearchIcon, UserIcon, XIcon, InfoIcon } from 'lucide-vue-next'
 
+const searchStaffQuery = ref('')
+const selectedStaff = ref(null)
+const staffSearchResults = ref([])
 const items = ref([])
-const showModal = ref(false)
-const isEdit = ref(false)
-const form = ref({ category: '', sub_category: '', score_impact: 0, description: '' })
-const currentId = ref(null)
+const loadingItems = ref(false)
 
-// --- 加载数据 ---
-const loadData = async () => {
-  const { data, error } = await supabase.from('scoring_items').select('*').order('category')
-  if (!error) items.value = data || []
-}
-
-// --- 手动新增/编辑 ---
-const openAddModal = () => {
-  isEdit.value = false
-  form.value = { category: '', sub_category: '', score_impact: 0, description: '' }
-  showModal.value = true
-}
-
-const editItem = (item) => {
-  isEdit.value = true
-  currentId.value = item.id
-  form.value = { ...item }
-  showModal.value = true
-}
-
-const saveItem = async () => {
-  if (isEdit.value) {
-    await supabase.from('scoring_items').update(form.value).eq('id', currentId.value)
-  } else {
-    await supabase.from('scoring_items').insert([form.value])
+// --- 搜索逻辑 ---
+let debounceTimeout = null
+const debouncedSearchStaff = () => {
+  clearTimeout(debounceTimeout)
+  if (searchStaffQuery.value.length < 2) {
+    staffSearchResults.value = []
+    return
   }
-  showModal.value = false
-  loadData()
+  debounceTimeout = setTimeout(async () => {
+    const { data } = await supabase
+      .from('staff_cache')
+      .select('*')
+      .or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`)
+      .limit(5)
+    staffSearchResults.value = data || []
+  }, 300)
 }
 
-// --- 删除 ---
-const deleteItem = async (id) => {
-  if (confirm('确定要删除这项考核标准吗？')) {
-    await supabase.from('scoring_items').delete().eq('id', id)
-    loadData()
+const selectStaff = (staff) => {
+  selectedStaff.value = staff
+  searchStaffQuery.value = staff.name
+  staffSearchResults.value = []
+}
+
+const clearSelectedStaff = () => {
+  selectedStaff.value = null
+  searchStaffQuery.value = ''
+}
+
+// --- 加载考核项 ---
+const fetchItems = async () => {
+  loadingItems.value = true
+  // 假设数据库里的 score_impact 已经是正数
+  const { data } = await supabase.from('scoring_items').select('*').order('category')
+  items.value = (data || []).map(i => ({ ...i, temp_input: null }))
+  loadingItems.value = false
+}
+
+// --- 提交扣分 ---
+const submitScore = async (item) => {
+  if (!selectedStaff.value || !item.temp_input) return
+
+  // 1. 超限提醒
+  if (item.temp_input > item.score_impact) {
+    const proceed = confirm(`该项设定上限为 ${item.score_impact} 分，确认按 ${item.temp_input} 分扣除吗？`)
+    if (!proceed) return
+  }
+
+  // 2. 存储逻辑：直接存入正数
+  try {
+    const { error } = await supabase.from('performance_logs').insert({
+      staff_id: selectedStaff.value.xft_user_id,
+      item_id: item.id,
+      final_score: Math.abs(item.temp_input), // 强制取正值存储
+      operator_name: '管理员',
+      sync_status: 'pending'
+    })
+
+    if (error) throw error
+
+    alert(`已记录：${selectedStaff.name} 扣除 ${item.temp_input} 分`)
+    item.temp_input = null
+  } catch (err) {
+    console.error(err)
+    alert('提交失败，请检查网络')
   }
 }
 
-// --- Excel 导入 ---
-const handleFileUpload = (e) => {
-  const file = e.target.files[0]
-  const reader = new FileReader()
-  reader.onload = async (event) => {
-    const data = new Uint8Array(event.target.result)
-    const workbook = XLSX.read(data, { type: 'array' })
-    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]])
-
-    const formattedData = jsonData.map(row => ({
-      category: row['考核大类'] || '未分类',
-      sub_category: row['考核项'],
-      score_impact: parseFloat(row['分值']),
-      description: row['描述'] || ''
-    }))
-
-    const { error } = await supabase.from('scoring_items').insert(formattedData)
-    if (error) alert('导入失败：' + error.message)
-    else loadData()
-  }
-  reader.readAsArrayBuffer(file)
-}
-
-onMounted(loadData)
+onMounted(fetchItems)
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }
+</style>
