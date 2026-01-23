@@ -1,4 +1,13 @@
 {
+  "name": "cuida-jx",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "lucide-vue-next": "^0.300.0",
