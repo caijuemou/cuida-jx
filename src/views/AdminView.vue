@@ -1,287 +1,236 @@
 <template>
-  <div class="pb-20">
-    <h2 class="text-2xl font-bold mb-6 text-gray-800">考核项管理</h2>
+  <div class="max-w-2xl mx-auto pb-24">
+    <div class="mb-8 p-6 bg-gradient-to-br from-blue-700 to-indigo-800 rounded-3xl text-white shadow-xl relative overflow-hidden">
+      <div class="relative z-10">
+        <h2 class="text-2xl font-extrabold tracking-tight">绩效打分工作台</h2>
+        <p class="text-blue-100 text-sm mt-1 opacity-90">请选择员工并录入表现项</p>
+      </div>
+      <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+    </div>
 
-    <div class="p-4 bg-white border border-gray-100 rounded-xl shadow-sm mb-6">
-      <h3 class="font-semibold text-gray-700 mb-3">批量导入/更新考核项</h3>
-      <input
-        type="file"
-        @change="handleFileUpload"
-        accept=".xlsx, .xls, .csv"
-        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-      />
-      <p class="text-sm text-gray-500 mt-2">
-        请上传Excel/CSV文件，列名需严格匹配：**考核大类, 考核项, 分值, 描述**。
-      </p>
-      <div v-if="uploading" class="mt-3 text-blue-600 flex items-center">
-        <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span>上传中...</span>
+    <div class="mb-8 group">
+      <div class="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 transition-all group-focus-within:shadow-indigo-100 group-focus-within:border-indigo-200">
+        <div class="relative">
+          <input
+            v-model="searchStaffQuery"
+            @input="debouncedSearchStaff"
+            type="text"
+            placeholder="搜索姓名或工号 (至少2个字)..."
+            class="w-full pl-12 pr-4 py-4 bg-transparent text-gray-700 placeholder-gray-400 outline-none font-medium"
+          />
+          <div class="absolute left-4 top-4 text-indigo-500">
+            <SearchIcon :size="20" />
+          </div>
+        </div>
+      </div>
+
+      <div v-if="staffSearchResults.length && !selectedStaff" class="mt-2 bg-white rounded-2xl shadow-xl border border-gray-50 overflow-hidden divide-y divide-gray-50 z-30 relative">
+        <div
+          v-for="staff in staffSearchResults"
+          :key="staff.xft_user_id"
+          @click="selectStaff(staff)"
+          class="p-4 cursor-pointer hover:bg-indigo-50 transition-colors flex items-center"
+        >
+          <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mr-3">
+            {{ staff.name.charAt(0) }}
+          </div>
+          <div>
+            <div class="font-bold text-gray-800">{{ staff.name }}</div>
+            <div class="text-xs text-gray-400">{{ staff.dept_name }} · {{ staff.job_title }}</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="p-4 bg-white border border-gray-100 rounded-xl shadow-sm mb-6">
-      <h3 class="font-semibold text-gray-700 mb-3">新增考核项</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        <input v-model="newItem.category" type="text" placeholder="考核大类" class="p-2 border rounded-lg">
-        <input v-model="newItem.sub_category" type="text" placeholder="考核项" class="p-2 border rounded-lg">
-        <input v-model="newItem.score_impact" type="number" placeholder="分值 (负数表示扣分)" class="p-2 border rounded-lg">
-        <input v-model="newItem.description" type="text" placeholder="描述 (可选)" class="p-2 border rounded-lg col-span-full">
+    <Transition name="fade">
+      <div v-if="selectedStaff" class="mb-8 p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between shadow-sm">
+        <div class="flex items-center">
+          <div class="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg mr-4">
+            <UserIcon :size="24" />
+          </div>
+          <div>
+            <div class="text-xs text-indigo-400 font-bold uppercase tracking-wider">当前考核对象</div>
+            <div class="text-lg font-black text-indigo-900">{{ selectedStaff.name }}</div>
+          </div>
+        </div>
+        <button @click="clearSelectedStaff" class="p-2 hover:bg-white rounded-xl text-indigo-400 transition-colors">
+          <XIcon :size="20" />
+        </button>
       </div>
+    </Transition>
+
+    <div class="flex overflow-x-auto pb-4 mb-4 space-x-2 scrollbar-hide">
       <button
-        @click="addNewItem"
-        :disabled="!newItem.category || !newItem.sub_category || !newItem.score_impact || addingItem"
-        class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300"
+        @click="activeCategory = '全部'"
+        :class="activeCategory === '全部' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border-gray-100'"
+        class="px-5 py-2 rounded-full text-sm font-bold border transition-all whitespace-nowrap"
       >
-        {{ addingItem ? '添加中...' : '添加考核项' }}
+        全部
+      </button>
+      <button
+        v-for="cat in uniqueCategories"
+        :key="cat"
+        @click="activeCategory = cat"
+        :class="activeCategory === cat ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border-gray-100'"
+        class="px-5 py-2 rounded-full text-sm font-bold border transition-all whitespace-nowrap"
+      >
+        {{ cat }}
       </button>
     </div>
 
-    <div class="bg-white border border-gray-100 rounded-xl shadow-sm overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">考核大类</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">考核项</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分值</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">描述</th>
-            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-if="loadingItems" class="text-center text-gray-500"><td colspan="5" class="py-4">加载中...</td></tr>
-          <tr v-else-if="items.length === 0" class="text-center text-gray-500"><td colspan="5" class="py-4">暂无考核项</td></tr>
-          <tr v-for="item in items" :key="item.id">
-            <template v-if="editingItem?.id === item.id">
-              <td class="px-6 py-4 whitespace-nowrap"><input v-model="editingItem.category" class="p-1 border rounded-md w-full"></td>
-              <td class="px-6 py-4 whitespace-nowrap"><input v-model="editingItem.sub_category" class="p-1 border rounded-md w-full"></td>
-              <td class="px-6 py-4 whitespace-nowrap"><input v-model="editingItem.score_impact" type="number" class="p-1 border rounded-md w-full"></td>
-              <td class="px-6 py-4 whitespace-nowrap"><input v-model="editingItem.description" class="p-1 border rounded-md w-full"></td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <button @click="saveEditedItem" :disabled="savingEdit" class="text-green-600 hover:text-green-900 mr-2 disabled:opacity-50">
-                  {{ savingEdit ? '保存中...' : '保存' }}
-                </button>
-                <button @click="cancelEdit" class="text-gray-600 hover:text-gray-900">取消</button>
-              </td>
-            </template>
-            <template v-else>
-              <td class="px-6 py-4 whitespace-nowrap">{{ item.category }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ item.sub_category }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm" :class="item.score_impact < 0 ? 'text-red-600' : 'text-green-600'">
-                {{ item.score_impact }}
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-500">{{ item.description }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                <button @click="startEdit(item)" class="text-blue-600 hover:text-blue-900 mr-2">编辑</button>
-                <button @click="deleteItem(item.id)" :disabled="deletingItem === item.id" class="text-red-600 hover:text-red-900 disabled:opacity-50">
-                  {{ deletingItem === item.id ? '删除中...' : '删除' }}
-                </button>
-              </td>
-            </template>
-          </tr>
-        </tbody>
-      </table>
+    <div v-if="loadingItems" class="py-20 text-center text-gray-400">
+      <div class="animate-spin inline-block w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full mb-4"></div>
+      <p>努力加载考核项...</p>
     </div>
 
-    <div class="mt-8 p-4 bg-white border border-gray-100 rounded-xl shadow-sm">
-      <h3 class="font-semibold text-gray-700 mb-3">人员数据管理</h3>
-      <button
-        @click="syncStaffData"
-        :disabled="syncingStaff"
-        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-300"
+    <div v-else class="space-y-4">
+      <div
+        v-for="item in filteredItems"
+        :key="item.id"
+        class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex justify-between items-center group hover:shadow-md transition-all active:scale-[0.98]"
       >
-        {{ syncingStaff ? '同步中...' : '立即同步薪福通人员数据' }}
-      </button>
-      <p v-if="lastStaffSync" class="text-xs text-gray-500 mt-2">上次同步: {{ new Date(lastStaffSync).toLocaleString() }}</p>
+        <div class="flex-1 pr-4">
+          <div class="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">{{ item.category }}</div>
+          <div class="text-gray-900 font-extrabold text-lg leading-tight">{{ item.sub_category }}</div>
+          <div class="text-sm text-gray-400 mt-1 line-clamp-2 italic">{{ item.description || '无详细描述' }}</div>
+        </div>
+
+        <div class="flex flex-col items-end ml-4">
+          <div :class="item.score_impact < 0 ? 'text-rose-500 bg-rose-50' : 'text-emerald-500 bg-emerald-50'"
+               class="px-3 py-1 rounded-full font-black text-sm mb-3">
+            {{ item.score_impact > 0 ? '+' : '' }}{{ item.score_impact }}
+          </div>
+          <button
+            @click="submitScore(item)"
+            :disabled="!selectedStaff || submittingItemId === item.id"
+            class="bg-gray-900 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-lg shadow-gray-200 disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none hover:bg-indigo-600 transition-all flex items-center"
+          >
+            <span v-if="submittingItemId === item.id" class="mr-2 animate-spin">●</span>
+            {{ submittingItemId === item.id ? '提交中' : '确认提交' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="submittingGlobal" class="fixed inset-0 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center z-50">
+      <div class="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center border border-gray-50">
+        <div class="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full mb-4"></div>
+        <p class="font-bold text-gray-800">正在同步薪福通...</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../composables/useSupabase'
-import * as XLSX from 'xlsx'
+import { SearchIcon, UserIcon, XIcon } from 'lucide-vue-next'
 
+// --- 员工搜索逻辑 ---
+const searchStaffQuery = ref('')
+const selectedStaff = ref(null)
+const staffSearchResults = ref([])
+const loadingStaff = ref(false)
+let debounceTimeout = null
+
+const fetchStaff = async (query) => {
+  loadingStaff.value = true
+  const { data, error } = await supabase
+    .from('staff_cache')
+    .select('*')
+    .or(`name.ilike.%${query}%,xft_user_id.ilike.%${query}%`)
+    .limit(5)
+
+  if (!error) staffSearchResults.value = data || []
+  loadingStaff.value = false
+}
+
+const debouncedSearchStaff = () => {
+  clearTimeout(debounceTimeout)
+  if (searchStaffQuery.value.length < 2) {
+    staffSearchResults.value = []
+    return
+  }
+  debounceTimeout = setTimeout(() => fetchStaff(searchStaffQuery.value), 300)
+}
+
+const selectStaff = (staff) => {
+  selectedStaff.value = staff
+  searchStaffQuery.value = staff.name
+}
+
+const clearSelectedStaff = () => {
+  selectedStaff.value = null
+  searchStaffQuery.value = ''
+  staffSearchResults.value = []
+}
+
+// --- 考核项加载与筛选 ---
 const items = ref([])
 const loadingItems = ref(false)
-const uploading = ref(false)
-const addingItem = ref(false)
-const editingItem = ref(null)
-const savingEdit = ref(false)
-const deletingItem = ref(null)
-const syncingStaff = ref(false)
-const lastStaffSync = ref(null)
+const activeCategory = ref('全部')
 
-const newItem = ref({
-  category: '',
-  sub_category: '',
-  score_impact: null,
-  description: ''
-})
-
-// --- 数据获取 ---
-const fetchScoringItems = async () => {
+const fetchItems = async () => {
   loadingItems.value = true
   const { data, error } = await supabase
     .from('scoring_items')
     .select('*')
-    .order('category', { ascending: true })
-    .order('sub_category', { ascending: true })
+    .order('category')
 
-  if (error) {
-    console.error('Error fetching scoring items:', error.message)
-    alert('加载考核项失败，请检查网络或联系管理员。')
-    items.value = []
-  } else {
-    items.value = data || []
-  }
+  if (!error) items.value = data || []
   loadingItems.value = false
 }
 
-// --- Excel 导入 ---
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
+const uniqueCategories = computed(() => {
+  return [...new Set(items.value.map(i => i.category))]
+})
 
-  uploading.value = true
-  const reader = new FileReader()
-  reader.onload = async (e) => {
-    try {
-      const data = new Uint8Array(e.target.result)
-      const workbook = XLSX.read(data, { type: 'array' })
-      const sheetName = workbook.SheetNames[0]
-      const json = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-        header: ['考核大类', '考核项', '分值', '描述'] // 指定列名，匹配你的模板
-      })
+const filteredItems = computed(() => {
+  if (activeCategory.value === '全部') return items.value
+  return items.value.filter(i => i.category === activeCategory.value)
+})
 
-      const itemsToInsert = json.slice(1).map(row => ({ // 假设第一行是表头
-        category: row['考核大类'] || '未分类',
-        sub_category: row['考核项'] || '未知项',
-        score_impact: parseFloat(row['分值']) || 0,
-        description: row['描述'] || '',
-        // creator: '管理员 (待薪福通OAuth集成)', // 导入时填操作人
-        // modifier: '管理员 (待薪福通OAuth集成)'
-      })).filter(item => item.sub_category !== '未知项'); // 过滤掉无效行
+// --- 提交打分逻辑 ---
+const submittingItemId = ref(null)
+const submittingGlobal = ref(false)
 
-      if (itemsToInsert.length === 0) {
-        alert('未从文件中读取到有效数据，请检查Excel格式。')
-        uploading.value = false
-        return
-      }
+const submitScore = async (item) => {
+  if (!selectedStaff.value) return
 
-      // 使用 upsert 策略，如果 category+sub_category 组合存在则更新，否则插入
-      // 注意：这里用 category 和 sub_category 作为唯一标识，需要确保这两项组合是唯一的
-      // 或者在数据库中为这两列添加 UNIQUE 约束
-      const { error } = await supabase
-        .from('scoring_items')
-        .upsert(itemsToInsert, { onConflict: ['category', 'sub_category'] }); // 指定冲突键
+  submittingItemId.value = item.id
+  // 生产环境建议开启全局 loading 防止重复点击
+  // submittingGlobal.value = true
 
-      if (error) {
-        console.error('批量导入失败:', error.message);
-        alert('批量导入失败：' + error.message);
-      } else {
-        alert('考核项批量导入/更新成功！');
-        fetchScoringItems(); // 重新加载列表
-      }
-    } catch (error) {
-      console.error('文件解析或导入失败:', error.message);
-      alert('文件解析或导入失败，请确保文件格式正确。');
-    } finally {
-      uploading.value = false;
-      event.target.value = ''; // 清空文件选择器
-    }
-  };
-  reader.readAsArrayBuffer(file);
-};
-
-// --- 新增考核项 ---
-const addNewItem = async () => {
-  addingItem.value = true
-  const { error } = await supabase
-    .from('scoring_items')
-    .insert({
-      ...newItem.value,
-      // creator: '管理员 (待薪福通OAuth集成)' // 谁创建的
+  try {
+    const { error } = await supabase.from('performance_logs').insert({
+      staff_id: selectedStaff.value.xft_user_id,
+      item_id: item.id,
+      final_score: item.score_impact,
+      operator_name: '管理员', // 后续对接免登获取真实姓名
+      sync_status: 'pending'
     })
 
-  if (error) {
-    console.error('新增考核项失败:', error.message)
-    alert('新增失败：' + error.message)
-  } else {
-    alert('考核项添加成功！')
-    newItem.value = { category: '', sub_category: '', score_impact: null, description: '' }
-    fetchScoringItems() // 重新加载列表
-  }
-  addingItem.value = false
-}
-
-// --- 编辑考核项 ---
-const startEdit = (item) => {
-  editingItem.value = { ...item } // 复制一份进行编辑，不直接修改原始数据
-}
-
-const cancelEdit = () => {
-  editingItem.value = null
-}
-
-const saveEditedItem = async () => {
-  if (!editingItem.value) return
-  savingEdit.value = true
-  const { id, category, sub_category, score_impact, description } = editingItem.value
-  const { error } = await supabase
-    .from('scoring_items')
-    .update({ category, sub_category, score_impact, description /*, modifier: '管理员 (待薪福通OAuth集成)' */ })
-    .eq('id', id)
-
-  if (error) {
-    console.error('更新考核项失败:', error.message)
-    alert('更新失败：' + error.message)
-  } else {
-    alert('考核项更新成功！')
-    fetchScoringItems()
-    editingItem.value = null
-  }
-  savingEdit.value = false
-}
-
-// --- 删除考核项 ---
-const deleteItem = async (id) => {
-  if (!confirm('确定要删除这项考核标准吗？这将无法撤销。')) return
-
-  deletingItem.value = id
-  const { error } = await supabase
-    .from('scoring_items')
-    .delete()
-    .eq('id', id)
-
-  if (error) {
-    console.error('删除失败:', error.message)
-    alert('删除失败')
-  } else {
-    fetchScoringItems()
-  }
-  deletingItem.value = null
-}
-
-// --- 同步薪福通人员数据 (调用 Edge Function) ---
-const syncStaffData = async () => {
-  syncingStaff.value = true
-  try {
-    const { data, error } = await supabase.functions.invoke('sync-xft-staff')
     if (error) throw error
-    alert('人员数据同步成功！')
-    lastStaffSync.value = new Date().toISOString()
-  } catch (error) {
-    console.error('人员同步失败:', error.message)
-    alert('同步失败，请检查 Edge Function 配置')
+
+    alert(`打分成功！已记录: ${selectedStaff.value.name} ${item.score_impact}分`)
+  } catch (err) {
+    console.error(err)
+    alert('提交失败，请检查数据库连接')
   } finally {
-    syncingStaff.value = false
+    submittingItemId.value = null
+    submittingGlobal.value = false
   }
 }
 
 onMounted(() => {
-  fetchScoringItems()
+  fetchItems()
 })
 </script>
+
+<style scoped>
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>
