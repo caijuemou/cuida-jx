@@ -101,6 +101,54 @@ import {
   Trash2Icon, BookOpenIcon
 } from 'lucide-vue-next'
 
+// 在 AdminView.vue 的 <script setup> 中添加
+const handleSyncStaff = async () => {
+  try {
+    // 1. 将粘贴的字符串转为 JSON 对象
+    const rawData = JSON.parse(xftJsonResponse.value)
+
+    // 2. 校验报文基本格式
+    if (rawData.returnCode !== 'SUC0000' || !rawData.body?.records) {
+      alert('抱歉，报文格式似乎不对。请确保复制了完整的响应体（需包含 SUC0000 和 records 数组）')
+      return
+    }
+
+    const records = rawData.body.records
+
+    // 3. 深度遍历解析（对齐薪福通字段）
+    const staffData = records.map(record => {
+      // 薪福通的数据主要嵌套在 staffBasicInfo 里
+      const basic = record.staffBasicInfo || {}
+
+      return {
+        xft_user_id: basic.stfNumber || basic.stfSeq, // 这里的工号是我们的唯一标识
+        staff_seq: basic.stfSeq,                       // 内部序号备用
+        name: basic.stfName,                           // 姓名
+        dept_name: basic.orgSeq,                       // 部门 ID
+        job_title: basic.posCode || '正式员工',         // 职位
+        mobile: basic.mobileNumber,                    // 手机号
+        last_sync_at: new Date().toISOString()
+      }
+    }).filter(s => s.xft_user_id) // 过滤掉没有工号的异常数据
+
+    // 4. 批量写入 Supabase
+    // upsert 会根据 xft_user_id 判断：已有的就更新，没有的就插入
+    const { data, error } = await supabase
+      .from('staff_cache')
+      .upsert(staffData, { onConflict: 'xft_user_id' })
+
+    if (error) throw error
+
+    alert(`同步大功告成！成功导入/更新了 ${staffData.length} 名员工。`)
+    showSyncModal.value = false // 关闭弹窗
+    xftJsonResponse.value = ''  // 清空文本框
+
+  } catch (err) {
+    console.error('解析出错:', err)
+    alert('解析失败！请检查粘贴的内容是否为有效的 JSON 格式。')
+  }
+}
+
 const items = ref([])
 const showModal = ref(false)
 const isEdit = ref(false)
