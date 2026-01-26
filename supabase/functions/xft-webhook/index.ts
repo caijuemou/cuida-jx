@@ -1,43 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// 引入 JS 版国密库
+import sm from "https://esm.sh/sm-crypto@0.3.12" 
 
 serve(async (req) => {
-  try {
-    // 薪福通推送是 POST 请求
-    if (req.method !== 'POST') {
-      return new Response("Method Not Allowed", { status: 405 })
+  const payload = await req.json()
+  const pubKey = Deno.env.get('XFT_PUB_KEY') || ""
+  
+  if (payload.eventId !== 'XFT00000') {
+    // 1. 获取加密内容
+    const encryptedData = payload.eventRcdInf
+    
+    // 2. 提取 SM4 密钥（公钥前32位）
+    const sm4Key = pubKey.substring(0, 32)
+    
+    try {
+      // 3. 解密数据
+      const decryptedStr = sm.sm4.decrypt(encryptedData, sm4Key)
+      const staffInfo = JSON.parse(decryptedStr)
+      console.log("解密后的员工变动信息:", staffInfo)
+      
+      // 4. 这里写你的数据库逻辑：
+      // 如果是离职，就从 staff_cache 删除
+      // 如果是入职或变更，就 upsert 到 staff_cache
+      
+    } catch (e) {
+      console.error("解密失败:", e)
     }
-
-    const payload = await req.json()
-    console.log("收到薪福通事件:", payload.eventId)
-
-    // --- 核心逻辑：响应连接测试 (XFT00000) ---
-    // 无论是测试还是正式事件，文档要求的成功返回格式都是这个
-    const successResponse = {
-      "rtnCod": "200",
-      "errMsg": ""
-    }
-
-    // 这里处理业务逻辑 (比如记录到数据库)
-    if (payload.eventId === 'XFT00000') {
-       console.log("连接测试通过")
-    } else {
-       // 正式事件处理...
-       console.log("处理正式业务事件:", payload.businessKey)
-    }
-
-    return new Response(
-      JSON.stringify(successResponse),
-      { 
-        status: 200, 
-        headers: { "Content-Type": "application/json; charset=utf-8" } 
-      }
-    )
-
-  } catch (err) {
-    console.error("处理失败:", err.message)
-    return new Response(
-      JSON.stringify({ "rtnCod": "500", "errMsg": err.message }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    )
   }
+
+  return new Response(JSON.stringify({ "rtnCod": "200", "errMsg": "" }), {
+    headers: { "Content-Type": "application/json" }
+  })
 })
