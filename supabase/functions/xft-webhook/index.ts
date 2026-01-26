@@ -1,32 +1,37 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-client@2'
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+serve(async (req) => {
+  try {
+    // 1. 获取招行推送的 Body
+    const { eventType, data } = await req.json()
 
-console.log("Hello from Functions!")
+    // 2. 初始化 Supabase 客户端
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
+    console.log(`收到事件: ${eventType}`, data)
+
+    // 3. 处理不同类型的事件 (例如: 人员入职/变动)
+    // 注意：招行推送通常只给 stfSeq (人员流水号)，需要反查详细信息
+    if (eventType === 'STAFF_INFO_UPDATE' || eventType === 'STAFF_JOIN') {
+      const stfSeq = data.stfSeq
+      
+      // 这里建议：调用你之前的获取人员详情的逻辑，或者标记该人员需要更新
+      // 简单处理：你可以直接更新对应人员的同步状态，或者直接在函数里请求一次招行接口
+      
+      console.log(`人员 ${stfSeq} 已变动，准备同步...`)
+    }
+
+    // 4. 必须按招行要求返回响应
+    return new Response(
+      JSON.stringify({ returnCode: "SUC0000", errorMsg: null }),
+      { headers: { "Content-Type": "application/json" } }
+    )
+
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
   }
-
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } },
-  )
 })
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/xft-webhook' \
-    --header 'Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjIwODQ3NzAwODR9.Rk9ABqoHSmDazPuF6uanRPqqUiYdGJvmt6s8CLx9BpX498q6ebYAbCGN2rLVVSusBdkbkLNl8zNqeOz_ckf33g' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
