@@ -4,7 +4,7 @@
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
 
         <div class="text-lg font-black text-gray-900 tracking-tighter">
-          PERFORMANCE <span class="text-indigo-600">SYS</span>
+          CUIDA <span class="text-indigo-600">绩效考核</span>
         </div>
 
         <div class="flex items-center gap-12"> 
