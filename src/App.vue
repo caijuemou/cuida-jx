@@ -7,7 +7,8 @@
           PERFORMANCE <span class="text-indigo-600">SYS</span>
         </div>
 
-        <div class="flex items-center gap-16"> <router-link
+        <div class="flex items-center gap-12"> 
+          <router-link
             to="/"
             class="nav-link"
             active-class="active-link"
@@ -20,7 +21,15 @@
             class="nav-link"
             active-class="active-link"
           >
-            管理
+            管理人员
+          </router-link>
+
+          <router-link
+            to="/admin/items"
+            class="nav-link"
+            active-class="active-link"
+          >
+            指标
           </router-link>
 
           <router-link
@@ -58,13 +67,13 @@
   color: #475569; /* 悬浮加深 */
 }
 
-/* 激活状态：仅改变颜色，不加背景或特殊效果 */
+/* 激活状态：使用品牌蓝 */
 .active-link {
-  color: #4f46e5 !important; /* 激活时使用品牌蓝 */
+  color: #4f46e5 !important; 
   position: relative;
 }
 
-/* 激活状态下的一个小装饰线条（可选，如果不想要可以删掉整个 ::after） */
+/* 激活状态下的下划线 */
 .active-link::after {
   content: '';
   position: absolute;

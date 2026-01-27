@@ -18,6 +18,11 @@ const routes = [
     path: "/dashboard",
     name: "dashboard",
     component: DashboardView
+  },
+  {
+	path: '/admin/items',
+	name: 'ItemsManagement',
+	component: () => import('../views/ItemsManagement.vue')
   }
 ]
 
