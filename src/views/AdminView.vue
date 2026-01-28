@@ -1,7 +1,13 @@
 <template>
   <div class="max-w-6xl mx-auto p-6 space-y-6">
-    <h1 class="text-2xl font-black">系统同步中心</h1>
-    
+    <h1 class="text-2xl font-black">系统管理中心</h1>
+    <router-link 
+        to="/admin/items" 
+        class="flex items-center gap-3 px-5 py-5 bg-indigo-600 rounded-2xl border border-blue-100 shadow-sm text-l font-black text-white hover:bg-indigo-700 hover:text-white transition-all active:scale-95"
+      >
+        <LayoutGridIcon :size="20" />
+        点击查看及修改维护考核标准
+      </router-link>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <h3 class="font-bold mb-4 flex items-center text-indigo-600">
@@ -25,7 +31,7 @@
 <script setup>
 import { ref } from 'vue'
 import { supabase } from '../composables/useSupabase'
-import { UserIcon, LayersIcon } from 'lucide-vue-next'
+import { UserIcon, LayersIcon, LayoutGridIcon } from 'lucide-vue-next'
 
 const staffJson = ref('')
 const deptJson = ref('')

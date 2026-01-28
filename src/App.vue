@@ -25,14 +25,6 @@
           </router-link>
 
           <router-link
-            to="/admin/items"
-            class="nav-link"
-            active-class="active-link"
-          >
-            标准
-          </router-link>
-
-          <router-link
             to="/dashboard"
             class="nav-link"
             active-class="active-link"
