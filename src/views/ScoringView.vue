@@ -1,29 +1,32 @@
 <template>
   <div class="max-w-2xl mx-auto pb-32 px-4 space-y-8 text-base">
+    <div class="flex justify-end">
+      <router-link to="/admin/history" class="flex items-center gap-2 px-4 py-2 bg-blue-100/80 rounded-2xl border border-slate-100 shadow-sm text-xs font-black text-slate-500 hover:text-indigo-600 transition-all">
+        <HistoryIcon :size="16" />查看历史记录
+      </router-link>
+    </div>
+
     <section class="bg-white p-7 rounded-[2rem] shadow-sm border border-gray-100">
       <div class="flex justify-between items-center mb-5">
-        <label class="text-xs font-black text-indigo-500 uppercase tracking-widest">1. 选择考核对象</label>
+        <label class="text-xs font-black text-indigo-500 uppercase tracking-widest">1. 选择被考核人员</label>
         <button v-if="form.staff_id" @click="clearStaff" class="text-xs font-bold text-gray-400 hover:text-rose-500">重置</button>
       </div>
 
-      <div class="relative mb-4">
-        <input v-model="searchStaffQuery" @input="handleStaffSearch" type="text" placeholder="输入姓名或工号搜索..." 
-          class="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-indigo-500 text-base font-bold" />
+      <div v-if="!form.staff_id" class="relative group">
+        <input v-model="searchStaffQuery" @input="handleStaffSearch" type="text" placeholder="输入姓名搜索 或 点击右侧图标..." 
+          class="w-full pl-12 pr-14 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-indigo-100 focus:bg-white focus:ring-0 text-base font-bold transition-all" />
         <SearchIcon class="absolute left-4 top-4 text-gray-300" :size="20" />
         
-        <div v-if="staffSearchResults.length > 0" class="absolute z-[70] w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+        <button @click="openStaffPicker" type="button" class="absolute right-2 top-2 z-20 p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+          <LayersIcon :size="20" />
+        </button>
+        
+        <div v-if="staffSearchResults.length > 0" class="absolute z-[70] w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div v-for="s in staffSearchResults" :key="s.xft_user_id" @click="selectStaff(s)" class="p-4 hover:bg-indigo-50 cursor-pointer border-b border-gray-50 last:border-none">
             <div class="font-bold text-gray-800">{{ s.name }}</div>
             <div class="text-xs text-gray-400">{{ s.dept_name }} · {{ s.job_title }}</div>
           </div>
         </div>
-      </div>
-
-      <div v-if="!form.staff_id">
-        <button @click="openStaffPicker" class="w-full py-4 px-5 bg-gray-50 rounded-2xl text-left flex justify-between items-center group border border-transparent hover:border-indigo-100 transition-all">
-          <span class="text-base font-bold text-gray-500 group-hover:text-indigo-600">从组织架构选择...</span>
-          <ChevronRightIcon :size="20" class="text-gray-300" />
-        </button>
       </div>
 
       <div v-else class="p-4 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center justify-between">
@@ -40,20 +43,23 @@
 
     <section class="bg-white p-7 rounded-[2rem] shadow-sm border border-gray-100 space-y-5">
       <div class="flex justify-between items-center">
-        <label class="text-xs font-black uppercase tracking-widest flex items-center gap-2" 
-               :class="isManagerMode ? 'text-rose-500' : 'text-emerald-500'">
+        <label class="text-xs font-black uppercase tracking-widest flex items-center gap-2" :class="isManagerMode ? 'text-rose-500' : 'text-emerald-500'">
           2. 考核内容详情
-          <span v-if="isManagerMode" class="bg-rose-500 text-white px-2 py-0.5 rounded-lg text-[10px] animate-pulse">店长专项模式</span>
+          <span v-if="isManagerMode" class="bg-rose-500 text-white px-2 py-0.5 rounded-lg text-[10px] animate-pulse">店长专项</span>
         </label>
         <button v-if="form.item_id" @click="clearItem" class="text-xs font-bold text-gray-400 hover:text-rose-500">重置</button>
       </div>
 
-      <div class="relative mb-2">
-        <input v-model="searchItemQuery" @input="handleItemSearch" type="text" placeholder="搜索考核标准..." 
-          class="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 text-base font-bold" />
+      <div v-if="!form.item_id" class="relative">
+        <input v-model="searchItemQuery" @input="handleItemSearch" type="text" placeholder="输入关键词搜索 或 点击右侧图标..." 
+          class="w-full pl-12 pr-14 py-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-emerald-100 focus:bg-white focus:ring-0 text-base font-bold transition-all" />
         <SearchIcon class="absolute left-4 top-4 text-gray-300" :size="20" />
         
-        <div v-if="itemSearchResults.length > 0" class="absolute z-[70] w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+        <button @click="openItemPicker" type="button" class="absolute right-2 top-2 z-20 p-2.5 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm">
+          <LayoutGridIcon :size="20" />
+        </button>
+        
+        <div v-if="itemSearchResults.length > 0" class="absolute z-[70] w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <div v-for="i in itemSearchResults" :key="i.id" @click="selectItem(i)" class="p-4 hover:bg-emerald-50 cursor-pointer border-b border-gray-50 last:border-none">
             <div class="font-bold text-gray-800">{{ i.sub_category }}</div>
             <div class="text-xs text-emerald-500 font-bold">{{ i.category }} · {{ i.score_impact }}分</div>
@@ -61,22 +67,15 @@
         </div>
       </div>
 
-      <div v-if="!form.item_id">
-        <button @click="openItemPicker" class="w-full py-4 px-5 bg-gray-50 rounded-2xl text-left flex justify-between items-center group border border-transparent hover:border-emerald-100 transition-all">
-          <span class="text-base font-bold text-gray-500 group-hover:text-emerald-600">按考核分类级联选择...</span>
-          <LayersIcon :size="20" class="text-gray-300" />
-        </button>
-      </div>
-
-      <div v-else class="space-y-6">
+      <div v-else class="space-y-6 animate-in slide-in-from-top-2">
         <div class="p-6 bg-emerald-50 rounded-[1.5rem] border border-emerald-100">
           <div class="text-lg font-black text-emerald-900 leading-snug mb-4">{{ form.item_name }}</div>
           <div class="flex items-center justify-between pt-5 border-t border-emerald-100">
             <div class="flex flex-col">
               <span class="text-xs font-black text-rose-500 uppercase">实际扣分</span>
-              <span class="text-[10px] text-gray-400 font-bold">标准最高扣分: {{ standardScore }}分</span>
+              <span class="text-[10px] text-gray-400 font-bold">标准分值: {{ standardScore }}分</span>
             </div>
-            <div class="flex items-center bg-white rounded-2xl border-2 border-emerald-200 px-4 py-1">
+            <div class="flex items-center bg-white rounded-2xl border-2 border-emerald-200 px-4 py-1 shadow-inner">
               <input v-model.number="form.score" type="number" class="w-16 py-2 bg-transparent border-none text-center font-black text-rose-600 text-2xl focus:ring-0" />
               <span class="text-gray-300 font-black ml-1 text-sm">分</span>
             </div>
@@ -87,55 +86,54 @@
 
     <section class="bg-indigo-50/50 p-7 rounded-[2rem] border border-indigo-100/50">
       <button @click="submitScore" :disabled="!isReady || submitting" 
-        class="w-full py-5 bg-indigo-600 rounded-3xl font-black text-lg text-white shadow-xl disabled:bg-gray-200 disabled:text-gray-400">
-        {{ submitting ? '提交中...' : '提交扣分记录单' }}
+        class="w-full py-5 bg-indigo-600 rounded-3xl font-black text-lg text-white shadow-xl shadow-indigo-200 active:scale-95 transition-all disabled:bg-gray-200 disabled:shadow-none">
+        {{ submitting ? '处理中...' : '确认并提交记录' }}
       </button>
     </section>
+	<div v-if="pickerMode" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end">
+		  <div class="bg-white w-full rounded-t-[3rem] p-8 max-h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300">
+			
+			<div class="flex justify-between items-center mb-6">
+			  <div class="flex items-center gap-3">
+				<button v-if="(pickerMode === 'staff' && staffStep > 1) || (pickerMode === 'item' && itemStep > 1)" 
+						@click="goBack" 
+						class="p-2 bg-gray-100 rounded-xl text-gray-500 hover:bg-gray-200 transition-colors">
+				  <ChevronLeftIcon :size="20" />
+				</button>
+				<h3 class="text-2xl font-black text-gray-900">{{ currentPickerTitle }}</h3>
+			  </div>
+			  <button @click="closePicker" class="p-3 bg-gray-100 rounded-2xl"><XIcon :size="20"/></button>
+			</div>
 
-    <div v-if="pickerMode" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end">
-      <div class="bg-white w-full rounded-t-[3rem] p-8 max-h-[85vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300">
-        
-        <div class="flex justify-between items-center mb-6">
-          <div class="flex items-center gap-3">
-            <button v-if="(pickerMode === 'staff' && staffStep > 1) || (pickerMode === 'item' && itemStep > 1)" 
-                    @click="goBack" 
-                    class="p-2 bg-gray-100 rounded-xl text-gray-500 hover:bg-gray-200 transition-colors">
-              <ChevronLeftIcon :size="20" />
-            </button>
-            <h3 class="text-2xl font-black text-gray-900">{{ currentPickerTitle }}</h3>
-          </div>
-          <button @click="closePicker" class="p-3 bg-gray-100 rounded-2xl"><XIcon :size="20"/></button>
-        </div>
+			<div class="flex-1 overflow-y-auto space-y-3 pb-12">
+			  <template v-if="pickerMode === 'staff'">
+				<button v-for="item in currentStaffOptions" :key="item" @click="handleStaffStepClick(item)" 
+						class="w-full p-5 bg-gray-50 rounded-2xl text-left font-black text-gray-700 flex justify-between items-center hover:bg-indigo-50 transition-colors border border-transparent active:border-indigo-200">
+				  <span>{{ item.name || item }}</span>
+				  <ChevronRightIcon :size="20" class="text-gray-300" />
+				</button>
+			  </template>
 
-        <div class="flex-1 overflow-y-auto space-y-3 pb-12">
-          <template v-if="pickerMode === 'staff'">
-            <button v-for="item in currentStaffOptions" :key="item" @click="handleStaffStepClick(item)" 
-                    class="w-full p-5 bg-gray-50 rounded-2xl text-left font-black text-gray-700 flex justify-between items-center hover:bg-indigo-50 transition-colors">
-              <span>{{ item.name || item }}</span>
-              <ChevronRightIcon :size="20" class="text-gray-300" />
-            </button>
-          </template>
-
-          <template v-if="pickerMode === 'item'">
-            <button v-for="item in currentItemOptions" :key="item.id || item" @click="handleItemStepClick(item)" 
-                    class="w-full p-5 bg-gray-50 rounded-2xl text-left font-black text-gray-700 flex justify-between items-center hover:bg-emerald-50 transition-colors">
-              <div class="flex flex-col">
-                <span>{{ item.sub_category || item }}</span>
-                <span v-if="item.score_impact" class="text-[10px] text-emerald-500 mt-1">标准扣分: {{ item.score_impact }}分</span>
-              </div>
-              <ChevronRightIcon :size="20" class="text-gray-300" />
-            </button>
-          </template>
-        </div>
-      </div>
+			  <template v-if="pickerMode === 'item'">
+				<button v-for="item in currentItemOptions" :key="item.id || item" @click="handleItemStepClick(item)" 
+						class="w-full p-5 bg-gray-50 rounded-2xl text-left font-black text-gray-700 flex justify-between items-center hover:bg-emerald-50 transition-colors border border-transparent active:border-emerald-200">
+				  <div class="flex flex-col">
+					<span>{{ item.sub_category || item }}</span>
+					<span v-if="item.score_impact" class="text-[10px] text-emerald-500 mt-1 uppercase font-black">标准分值: {{ item.score_impact }}分</span>
+				  </div>
+				  <ChevronRightIcon :size="20" class="text-gray-300" />
+				</button>
+			  </template>
+			</div>
+		  </div>
+		</div>
     </div>
-  </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../composables/useSupabase'
-import { SearchIcon, UserIcon, XIcon, ChevronRightIcon, ChevronLeftIcon, CheckCircleIcon, LayersIcon } from 'lucide-vue-next'
+import { SearchIcon, UserIcon, XIcon, ChevronRightIcon, ChevronLeftIcon, CheckCircleIcon, LayersIcon, HistoryIcon, LayoutGridIcon } from 'lucide-vue-next'
 
 // --- 状态定义 ---
 const form = ref({ staff_id: '', staff_name: '', store_name: '', date: new Date().toISOString().split('T')[0], item_id: '', item_name: '', score: 0, operator_name: '管理员', operator_dept: '运营部' })
@@ -251,7 +249,7 @@ const handleItemStepClick = (val) => {
 // --- 辅助方法 ---
 const clearStaff = () => { form.value.staff_id = ''; form.value.staff_name = ''; isManagerMode.value = false; clearItem() }
 const clearItem = () => { form.value.item_id = ''; form.value.item_name = ''; form.value.score = 0 }
-const openStaffPicker = () => { pickerMode.value = 'staff'; staffStep.value = 1 }
+const openStaffPicker = () => { console.log('打开人员选择器'); pickerMode.value = 'staff'; staffStep.value = 1 }
 const openItemPicker = () => { pickerMode.value = 'item'; itemStep.value = 1 }
 const closePicker = () => { pickerMode.value = null }
 const isReady = computed(() => form.value.staff_id && form.value.item_id)

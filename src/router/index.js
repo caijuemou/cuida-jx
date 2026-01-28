@@ -20,6 +20,11 @@ const routes = [
     component: DashboardView
   },
   {
+	path: "/admin/history",
+	name: "history",
+	component: () => import('../views/HistoryView.vue')
+  },
+  {
 	path: '/admin/items',
 	name: 'ItemsManagement',
 	component: () => import('../views/ItemsManagement.vue')

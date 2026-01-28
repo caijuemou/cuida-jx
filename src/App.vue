@@ -21,7 +21,7 @@
             class="nav-link"
             active-class="active-link"
           >
-            管理人员
+            管理
           </router-link>
 
           <router-link
@@ -29,7 +29,7 @@
             class="nav-link"
             active-class="active-link"
           >
-            指标
+            标准
           </router-link>
 
           <router-link

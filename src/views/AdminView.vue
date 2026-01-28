@@ -5,17 +5,17 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <h3 class="font-bold mb-4 flex items-center text-indigo-600">
-          <UserIcon class="mr-2" :size="20"/> 1. 同步在职员工 (过滤D)
+          <UserIcon class="mr-2" :size="20"/> 1. 同步在职员工 
         </h3>
-        <textarea v-model="staffJson" placeholder="粘贴员工列表 JSON..." class="w-full h-48 p-4 bg-gray-50 rounded-2xl border-none text-xs mb-4 focus:ring-2 focus:ring-indigo-500"></textarea>
+        <textarea v-model="staffJson" placeholder="粘贴员工列表数据..." class="w-full h-48 p-4 bg-gray-50 rounded-2xl border-none text-xs mb-4 focus:ring-2 focus:ring-indigo-500"></textarea>
         <button @click="syncStaff" class="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">执行员工同步</button>
       </div>
 
       <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <h3 class="font-bold mb-4 flex items-center text-emerald-600">
-          <LayersIcon class="mr-2" :size="20"/> 2. 同步部门架构 (修复区域)
+          <LayersIcon class="mr-2" :size="20"/> 2. 同步部门架构 
         </h3>
-        <textarea v-model="deptJson" placeholder="粘贴部门架构 JSON..." class="w-full h-48 p-4 bg-gray-50 rounded-2xl border-none text-xs mb-4 focus:ring-2 focus:ring-emerald-500"></textarea>
+        <textarea v-model="deptJson" placeholder="粘贴部门架构数据..." class="w-full h-48 p-4 bg-gray-50 rounded-2xl border-none text-xs mb-4 focus:ring-2 focus:ring-emerald-500"></textarea>
         <button @click="syncDepts" class="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all">执行架构同步</button>
       </div>
     </div>
