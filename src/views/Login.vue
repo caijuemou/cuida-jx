@@ -123,7 +123,7 @@ onMounted(async () => {
 
       // 角色跳转
       const isSuper = staff.dept_name === '公司管理组' || staff.name === '蔡珏侔';
-      const isManager = staff.job_title?.includes('店长');
+      const isManager = staff.job_title?.includes('店经理');
 
       if (isSuper) {
         router.push('/admin');
