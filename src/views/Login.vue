@@ -74,30 +74,39 @@ onMounted(async () => {
   if (data) {
     isProcessing.value = true;
     try {
-      // 调用 Edge Function 验证
-      const { data: res, error } = await supabase.functions.invoke('xft-login', {
-        body: { data }
-      });
+      // 1. 前端直接解码 data
+      // 薪福通的 data 是标准 Base64，但可能有 URL 安全字符替换
+      const decodedString = decodeURIComponent(escape(window.atob(data.replace(/-/g, '+').replace(/_/g, '/'))));
+      console.log('解码后的数据:', decodedString);
 
-      if (error || !res.success) throw new Error(error?.message || '验证失败');
+      // 2. 从字符串中解析出姓名 (USRNAM) 和 工号 (STFNBR)
+      // 你的 URL 里包含: USRNAM=蔡珏侔, STFNBR=CD000023
+      const nameMatch = decodedString.match(/USRNAM=([^|]+)/);
+      const name = nameMatch ? nameMatch[1] : null;
+      
+      const stfMatch = decodedString.match(/STFNBR=([^|]+)/);
+      const stfnbr = stfMatch ? stfMatch[1] : null;
 
-      // 匹配本地 staff_cache
+      if (!name) throw new Error("无法识别用户信息");
+
+      // 3. 直接用姓名和工号去匹配你的 staff_cache 表
+      // 建议优先用工号匹配，因为姓名可能重复
       const { data: staff, error: dbError } = await supabase
         .from('staff_cache')
         .select('*')
-        .eq('mobile', res.user.mobile)
+        .eq('name', name) // 如果你有工号字段，改为 .eq('staff_id', stfnbr) 会更准
         .single();
 
       if (dbError || !staff) {
-        alert('登录成功，但在系统名单内未找到您的手机号：' + res.user.mobile);
+        alert(`登录成功，但在考评名单中未找到: ${name}`);
         isProcessing.value = false;
         return;
       }
 
-      // 核心：保存 Session
+      // 4. 核心：保存 Session 到本地
       localStorage.setItem('user_info', JSON.stringify(staff));
 
-      // 角色跳转逻辑
+      // 5. 跳转逻辑
       if (staff.dept_name === '公司管理组' || staff.name === '蔡珏侔') {
         router.push('/admin');
       } else if (staff.job_title?.includes('店长')) {
@@ -107,8 +116,8 @@ onMounted(async () => {
       }
 
     } catch (err) {
-      console.error(err);
-      alert('身份校验异常，请重试');
+      console.error('解码失败:', err);
+      alert('身份校验异常，请尝试重新登录');
       isProcessing.value = false;
     }
   }
