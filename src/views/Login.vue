@@ -89,19 +89,20 @@ onMounted(async () => {
 
       if (!name) throw new Error("无法识别用户信息");
 
-      // 3. 直接用姓名和工号去匹配你的 staff_cache 表
-      // 建议优先用工号匹配，因为姓名可能重复
-      const { data: staff, error: dbError } = await supabase
-        .from('staff_cache')
-        .select('*')
-        .eq('name', name) // 如果你有工号字段，改为 .eq('staff_id', stfnbr) 会更准
-        .single();
+		// 3. 匹配你的 staff_cache 表
+		// 尝试同时匹配工号或姓名（前提是你的表里有这些字段）
+		const { data: staff, error: dbError } = await supabase
+		  .from('staff_cache')
+		  .select('*')
+		  .or(`name.eq.${name},staff_id.eq.${stfnbr}`) // 假设工号字段叫 staff_id
+		  .maybeSingle(); // 即使没找到也不直接报错，方便我们判断
 
-      if (dbError || !staff) {
-        alert(`登录成功，但在考评名单中未找到: ${name}`);
-        isProcessing.value = false;
-        return;
-      }
+		if (dbError || !staff) {
+		  console.error('数据库查询错误:', dbError);
+		  alert(`登录成功(薪福通: ${name})，但考评名单中未找到该用户，请联系管理员添加。`);
+		  isProcessing.value = false;
+		  return;
+		}
 
       // 4. 核心：保存 Session 到本地
       localStorage.setItem('user_info', JSON.stringify(staff));
