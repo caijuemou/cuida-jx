@@ -94,12 +94,16 @@ onMounted(async () => {
         .or(`name.eq."${name}",staff_user_id.eq."${stfnbr}"`) 
         .maybeSingle();
 
-      if (dbError || !staff) {
-        console.error('DB Error:', dbError);
-        alert(`系统名单中未找到 [${name}]，请联系管理员。`);
-        isProcessing.value = false;
-        return;
-      }
+	  if (dbError || !staff) {
+		console.error('数据库匹配细节:', { 
+		  error: dbError, 
+	      searchName: name, 
+		  searchId: stfnbr 
+		});
+		alert(`登录成功(薪福通: ${name})，但系统名单中找不到对应的记录。\n请检查工号是否为: ${stfnbr}`);
+		isProcessing.value = false;
+		return;
+	  }
 
       // --- 写入缓存 ---
       localStorage.setItem('user_info', JSON.stringify(staff));
