@@ -276,7 +276,7 @@ const submitScore = async () => {
       target_name: form.value.staff_name,
       target_dept_name: form.value.store_name,
       target_job_title: targetStaff?.job_title || '员工',
-      category_label: form.value.item_name,
+      category_label: form.value.category_name,
       score_value: String(form.value.score),
       description: `考核项: ${form.value.item_name}，分值: ${form.value.score}`,
       record_date: form.value.date
