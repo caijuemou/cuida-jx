@@ -91,7 +91,7 @@ onMounted(async () => {
       const { data: staff, error: dbError } = await supabase
         .from('staff_cache')
         .select('*')
-        .or(`name.eq."${name}",staff_id.eq."${stfnbr}"`) 
+        .or(`name.eq."${name}",staff_user_id.eq."${stfnbr}"`) 
         .maybeSingle();
 
       if (dbError || !staff) {
