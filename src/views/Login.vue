@@ -54,7 +54,7 @@ import { ShieldCheckIcon, Loader2Icon } from 'lucide-vue-next';
 const router = useRouter();
 const isProcessing = ref(false);
 
-// 1. 发起登录：跳转到薪福通
+// 1. 发起登录
 const handleXFTLogin = () => {
   const XFT_DOMAIN = "https://xft.cmbchina.com";
   const APP_ID = "0692caa6-c700-403f-8667-96cd41adfca5";
@@ -73,7 +73,7 @@ onMounted(async () => {
   if (data) {
     isProcessing.value = true;
     try {
-      // --- 稳健的 Base64 转 UTF-8 解码 ---
+      // --- 稳健的中文解码 ---
       const rawData = window.atob(data.replace(/-/g, '+').replace(/_/g, '/'));
       const uint8Array = new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
       const decodedString = new TextDecoder().decode(uint8Array);
@@ -84,35 +84,44 @@ onMounted(async () => {
       const name = decodedString.match(/USRNAM=([^|]+)/)?.[1];
       const stfnbr = decodedString.match(/STFNBR=([^|]+)/)?.[1];
 
-      if (!name) throw new Error("无法读取姓名");
+      if (!name || !stfnbr) throw new Error("无法读取用户信息");
 
-      // --- 匹配数据库 ---
-      // 注意：确保你的表里确实有 staff_id 这个字段名，否则还是用 name 匹配
-      const { data: staff, error: dbError } = await supabase
+      // --- 匹配数据库 (修正后的逻辑) ---
+      let staff = null;
+
+      // 首先尝试用真实的工号字段 xft_user_id 匹配
+      const { data: byId } = await supabase
         .from('staff_cache')
         .select('*')
-        .or(`name.eq."${name}",user_id.eq."${stfnbr}"`) 
+        .eq('user_id', stfnbr)
         .maybeSingle();
+      
+      staff = byId;
 
-	  if (dbError || !staff) {
-		console.error('数据库匹配细节:', { 
-		  error: dbError, 
-	      searchName: name, 
-		  searchId: stfnbr 
-		});
-		alert(`登录成功(薪福通: ${name})，但系统名单中找不到对应的记录。\n请检查工号是否为: ${stfnbr}`);
-		isProcessing.value = false;
-		return;
-	  }
+      // 如果工号没匹配上，尝试用姓名匹配
+      if (!staff) {
+        const { data: byName } = await supabase
+          .from('staff_cache')
+          .select('*')
+          .eq('name', name)
+          .maybeSingle();
+        staff = byName;
+      }
 
-      // --- 写入缓存 ---
+      if (!staff) {
+        console.error('匹配失败，已解析数据:', { name, stfnbr });
+        alert(`登录成功(薪福通: ${name})，但系统名单中找不到对应的记录。\n请确认工号 [${stfnbr}] 是否在系统中存在。`);
+        isProcessing.value = false;
+        return;
+      }
+
+      // --- 登录成功后的处理 ---
       localStorage.setItem('user_info', JSON.stringify(staff));
-
-      // --- 清理 URL 参数并跳转 ---
-      // 清除地址栏那串长长的加密 data，防止刷新页面重复校验
+      
+      // 清除 URL 痕迹
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // 执行角色跳转
+      // 角色跳转
       const isSuper = staff.dept_name === '公司管理组' || staff.name === '蔡珏侔';
       const isManager = staff.job_title?.includes('店长');
 
@@ -125,8 +134,8 @@ onMounted(async () => {
       }
 
     } catch (err) {
-      console.error('登录流程异常:', err);
-      alert('身份校验失败，请重试');
+      console.error('登录校验异常:', err);
+      alert('身份校验失败，请重新登录');
       isProcessing.value = false;
     }
   }
