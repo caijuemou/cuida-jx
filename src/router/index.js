@@ -2,8 +2,15 @@ import { createRouter, createWebHistory } from 'vue-router'
 import ScoringView from '../views/ScoringView.vue'
 import AdminView from '../views/AdminView.vue'
 import DashboardView from '../views/DashboardView.vue'
+import Login from '../views/Login.vue'
 
 const routes = [
+  {
+	path: '/Login',
+	name: 'Login',
+	component: Login,
+	meta: {hideNav: true } // 👈 标记：登录页不显示导航栏
+  },
   {
     path: '/',
     name: 'scoring',
