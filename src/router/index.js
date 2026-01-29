@@ -43,4 +43,23 @@ const router = createRouter({
   routes
 })
 
+// --- 全局路由守卫：保安逻辑 ---
+router.beforeEach((to, from, next) => {
+  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+  const isAuthenticated = !!userInfo.name;
+
+  // 1. 如果要去非登录页，且没登录，强制弹回登录页
+  if (to.path !== '/login' && !isAuthenticated) {
+    next('/login');
+  } 
+  // 2. 如果已经登录了还想回登录页，直接送去首页
+  else if (to.path === '/login' && isAuthenticated) {
+    next('/');
+  } 
+  // 3. 其他情况放行
+  else {
+    next();
+  }
+});
+
 export default router

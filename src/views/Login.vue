@@ -56,17 +56,16 @@ const isProcessing = ref(false);
 
 // 1. 发起登录：跳转到薪福通
 const handleXFTLogin = () => {
-  const XFT_DOMAIN =  "https://xft.cmbchina.com";  // 生产环境用 https://xft.cmbchina.com // 如果是测试环境用 https://xft-demo.cmburl.cn
+  const XFT_DOMAIN = "https://xft.cmbchina.com";
   const APP_ID = "0692caa6-c700-403f-8667-96cd41adfca5";
   const REDIRECT_URI = encodeURIComponent(window.location.origin + "/login");
   const STATE = Date.now().toString();
   
   const authUrl = `${XFT_DOMAIN}/xft-gateway/xft-login-new/xwapi/oauth/authorize?app_id=${APP_ID}&redirect_uri=${REDIRECT_URI}&state=${STATE}`;
-  
   window.location.href = authUrl;
 };
 
-// 2. 处理回调：检测 URL 里的 data 参数
+// 2. 处理回调
 onMounted(async () => {
   const params = new URLSearchParams(window.location.search);
   const data = params.get('data');
@@ -74,51 +73,56 @@ onMounted(async () => {
   if (data) {
     isProcessing.value = true;
     try {
-      // 1. 前端直接解码 data
-      // 薪福通的 data 是标准 Base64，但可能有 URL 安全字符替换
-      const decodedString = decodeURIComponent(escape(window.atob(data.replace(/-/g, '+').replace(/_/g, '/'))));
-      console.log('解码后的数据:', decodedString);
-
-      // 2. 从字符串中解析出姓名 (USRNAM) 和 工号 (STFNBR)
-      // 你的 URL 里包含: USRNAM=蔡珏侔, STFNBR=CD000023
-      const nameMatch = decodedString.match(/USRNAM=([^|]+)/);
-      const name = nameMatch ? nameMatch[1] : null;
+      // --- 稳健的 Base64 转 UTF-8 解码 ---
+      const rawData = window.atob(data.replace(/-/g, '+').replace(/_/g, '/'));
+      const uint8Array = new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
+      const decodedString = new TextDecoder().decode(uint8Array);
       
-      const stfMatch = decodedString.match(/STFNBR=([^|]+)/);
-      const stfnbr = stfMatch ? stfMatch[1] : null;
+      console.log('身份解码成功:', decodedString);
 
-      if (!name) throw new Error("无法识别用户信息");
+      // 解析字段
+      const name = decodedString.match(/USRNAM=([^|]+)/)?.[1];
+      const stfnbr = decodedString.match(/STFNBR=([^|]+)/)?.[1];
 
-		// 3. 匹配你的 staff_cache 表
-		// 尝试同时匹配工号或姓名（前提是你的表里有这些字段）
-		const { data: staff, error: dbError } = await supabase
-		  .from('staff_cache')
-		  .select('*')
-		  .or(`name.eq.${name},staff_id.eq.${stfnbr}`) // 假设工号字段叫 staff_id
-		  .maybeSingle(); // 即使没找到也不直接报错，方便我们判断
+      if (!name) throw new Error("无法读取姓名");
 
-		if (dbError || !staff) {
-		  console.error('数据库查询错误:', dbError);
-		  alert(`登录成功(薪福通: ${name})，但考评名单中未找到该用户，请联系管理员添加。`);
-		  isProcessing.value = false;
-		  return;
-		}
+      // --- 匹配数据库 ---
+      // 注意：确保你的表里确实有 staff_id 这个字段名，否则还是用 name 匹配
+      const { data: staff, error: dbError } = await supabase
+        .from('staff_cache')
+        .select('*')
+        .or(`name.eq."${name}",staff_id.eq."${stfnbr}"`) 
+        .maybeSingle();
 
-      // 4. 核心：保存 Session 到本地
+      if (dbError || !staff) {
+        console.error('DB Error:', dbError);
+        alert(`系统名单中未找到 [${name}]，请联系管理员。`);
+        isProcessing.value = false;
+        return;
+      }
+
+      // --- 写入缓存 ---
       localStorage.setItem('user_info', JSON.stringify(staff));
 
-      // 5. 跳转逻辑
-      if (staff.dept_name === '公司管理组' || staff.name === '蔡珏侔') {
+      // --- 清理 URL 参数并跳转 ---
+      // 清除地址栏那串长长的加密 data，防止刷新页面重复校验
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      // 执行角色跳转
+      const isSuper = staff.dept_name === '公司管理组' || staff.name === '蔡珏侔';
+      const isManager = staff.job_title?.includes('店长');
+
+      if (isSuper) {
         router.push('/admin');
-      } else if (staff.job_title?.includes('店长')) {
+      } else if (isManager) {
         router.push('/');
       } else {
         router.push('/dashboard');
       }
 
     } catch (err) {
-      console.error('解码失败:', err);
-      alert('身份校验异常，请尝试重新登录');
+      console.error('登录流程异常:', err);
+      alert('身份校验失败，请重试');
       isProcessing.value = false;
     }
   }
