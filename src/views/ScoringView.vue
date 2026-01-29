@@ -254,18 +254,75 @@ const openItemPicker = () => { pickerMode.value = 'item'; itemStep.value = 1 }
 const closePicker = () => { pickerMode.value = null }
 const isReady = computed(() => form.value.staff_id && form.value.item_id)
 
-// --- 提交 ---
+// --- 提交逻辑 (联动薪福通版) ---
 const submitScore = async () => {
-  submitting.value = true
-  const { error } = await supabase.from('performance_logs').insert([{
-    staff_id: form.value.staff_id, item_id: form.value.item_id, final_score: form.value.score,
-    operator_name: form.value.operator_name, operator_dept: form.value.operator_dept,
-    store_name: form.value.store_name, score_date: form.value.date
-  }])
-  if (!error) { alert('✅ 提交成功！'); clearStaff() }
-  else { alert('❌ 提交失败：' + error.message) }
-  submitting.value = false
-}
+  if (submitting.value) return;
+  submitting.value = true;
+
+  try {
+    // 0. 获取当前登录者（发起人）
+    const me = JSON.parse(localStorage.getItem('user_info') || '{}');
+    if (!me.xft_user_id) throw new Error("未找到当前登录用户信息，请重新登录");
+
+    // 1. 获取选中的被考核人详细信息 (从 staffTree 中通过 ID 找，确保数据完整)
+    const allStaffList = Object.values(staffTree.value).flatMap(d => Object.values(d)).flatMap(s => Object.values(s)).flat();
+    const targetStaff = allStaffList.find(s => s.xft_user_id === form.value.staff_id);
+
+    // 2. 构造本地数据库记录
+    const record = {
+      starter_id: me.xft_user_id,
+      starter_name: me.name,
+      target_user_id: form.value.staff_id,
+      target_name: form.value.staff_name,
+      target_dept_name: form.value.store_name,
+      target_job_title: targetStaff?.job_title || '员工',
+      category_label: form.value.item_name,
+      score_value: String(form.value.score),
+      description: `考核项: ${form.value.item_name}，分值: ${form.value.score}`,
+      record_date: form.value.date
+    };
+
+    // 3. 插入本地数据库 perf_records (你刚才建的表)
+    const { data: dbData, error: dbError } = await supabase
+      .from('perf_records')
+      .insert(record)
+      .select()
+      .single();
+
+    if (dbError) throw new Error("本地保存失败: " + dbError.message);
+
+    // 4. 联动薪福通：调用 Edge Function
+    // 注意：确保你已经在终端执行过 supabase functions deploy xft-start-flow
+    const { data: xftData, error: invokeError } = await supabase.functions.invoke('xft-start-flow', {
+      body: { record: dbData }
+    });
+
+    if (invokeError) {
+      console.error("函数调用失败:", invokeError);
+      alert('本地记录已保存，但发起薪福通流程失败。请在历史记录中手动重试。');
+    } else if (xftData?.returnCode === "SUC0000") {
+      // 5. 成功发起流程后，回填单号到本地表
+      await supabase
+        .from('perf_records')
+        .update({ 
+          xft_proc_inst_id: xftData.body.procInstId,
+          sync_status: 'success' 
+        })
+        .eq('id', dbData.id);
+
+      alert(`✅ 提交成功！\n薪福通单号: ${xftData.body.procInstId}`);
+      clearStaff();
+    } else {
+      throw new Error(xftData?.errorMsg || "薪福通接口返回异常");
+    }
+
+  } catch (err) {
+    console.error('提交异常:', err);
+    alert('❌ 操作失败: ' + err.message);
+  } finally {
+    submitting.value = false;
+  }
+};
 
 onMounted(loadData)
 </script>
