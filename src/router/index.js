@@ -48,17 +48,21 @@ router.beforeEach((to, from, next) => {
   const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
   const isAuthenticated = !!userInfo.name;
 
-  // 1. 如果要去非登录页，且没登录，强制弹回登录页
+// 权限定义
+  const isSuper = userInfo.name === '蔡珏侔' || userInfo.dept_name === '公司管理组';
+  const isManager = userInfo.job_title?.includes('店经理') || userInfo.job_title?.includes('店长');
+
   if (to.path !== '/login' && !isAuthenticated) {
-    next('/login');
+    next('/login'); // 没登录，滚去登录
   } 
-  // 2. 如果已经登录了还想回登录页，直接送去首页
-  else if (to.path === '/login' && isAuthenticated) {
-    next('/');
-  } 
-  // 3. 其他情况放行
+  else if (to.path === '/admin' && !isSuper) {
+    next('/'); // 不是超管想进管理页，弹回首页
+  }
+  else if (to.path === '/' && (!isSuper && !isManager)) {
+    next('/dashboard'); // 既不是超管也不是店经理，不准打分，去大屏
+  }
   else {
-    next();
+    next(); // 校验通过，放行
   }
 });
 

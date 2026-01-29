@@ -67,7 +67,7 @@ watch(() => route.path, refreshUser);
 
 // 4. 权限计算
 const isSuperAdmin = computed(() => userInfo.value.dept_name === '公司管理组' || userInfo.value.name === '蔡珏侔');
-const canAccessScoring = computed(() => isSuperAdmin.value || userInfo.value.job_title?.includes('店长'));
+const canAccessScoring = computed(() => isSuperAdmin.value || userInfo.value.job_title?.includes('店经理'));
 
 // 5. 退出登录
 const handleLogout = () => {
