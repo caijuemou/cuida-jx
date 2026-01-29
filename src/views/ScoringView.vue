@@ -217,7 +217,7 @@ const selectStaff = (s) => {
 }
 
 const selectItem = (i) => {
-  form.value.item_id = i.id; form.value.item_name = i.sub_category; form.value.score = i.score_impact; standardScore.value = i.score_impact
+  form.value.item_id = i.id; form.value.item_name = i.sub_category; form.value.category_name = i.category; form.value.score = i.score_impact; standardScore.value = i.score_impact
   closePicker()
 }
 
