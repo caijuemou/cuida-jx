@@ -294,26 +294,31 @@ const submitScore = async () => {
     // 4. 联动薪福通：调用 Edge Function
     // 注意：确保你已经在终端执行过 supabase functions deploy xft-start-flow
     const { data: xftData, error: invokeError } = await supabase.functions.invoke('xft-start-flow', {
-      body: { record: dbData }
+      body: { record: dbData } 
     });
 
-    if (invokeError) {
-      console.error("函数调用失败:", invokeError);
-      alert('本地记录已保存，但发起薪福通流程失败。请在历史记录中手动重试。');
-    } else if (xftData?.returnCode === "SUC0000") {
-      // 5. 成功发起流程后，回填单号到本地表
+    if (invokeError) throw new Error("连接 Edge Function 失败: " + invokeError.message);
+
+    // 5. 判断招行真实的返回码 (由 Gateway 解密后传回)
+    if (xftData?.returnCode === "SUC0000") {
       await supabase
         .from('perf_records')
         .update({ 
-          xft_proc_inst_id: xftData.body.procInstId,
+          xft_proc_inst_id: xftData.body?.procInstId,
           sync_status: 'success' 
         })
         .eq('id', dbData.id);
 
-      alert(`✅ 提交成功！\n薪福通单号: ${xftData.body.procInstId}`);
+      alert(`✅ 提交成功！单号: ${xftData.body.procInstId}`);
       clearStaff();
     } else {
-      throw new Error(xftData?.errorMsg || "薪福通接口返回异常");
+      // 处理招行具体的业务报错 (比如你之前的 OA0F004)
+      const errorMsg = xftData?.errorMsg || "招行接口报错";
+      
+      // 更新本地状态为同步失败
+      await supabase.from('perf_records').update({ sync_status: 'failed' }).eq('id', dbData.id);
+      
+      throw new Error(errorMsg);
     }
 
   } catch (err) {
