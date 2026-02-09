@@ -60,7 +60,7 @@ const syncStaff = async () => {
       gender: r.SEXFLG,
       project_code: r.PRJCOD,
       status: r.USRSTS,
-      is_active: r.USRSTS === 'A'
+      is_active: r.USRSTS !== 'D'
     })).filter(s => s.xft_user_id && s.xft_user_id.startsWith('V')) // 增加一个保险过滤
  
     // 执行 Upsert
