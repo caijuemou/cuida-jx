@@ -39,6 +39,7 @@ const deptJson = ref('')
 // 同步员工：严格对齐 USRNBR 和核心字段
 const syncStaff = async () => {
   try {
+    const parsed = JSON.parse(staffJson.value)
     const records = parsed.OPUSRLSTY || 
                     (parsed.body && parsed.body.userList) || 
                     (parsed.body && parsed.body.records)
@@ -68,7 +69,7 @@ const syncStaff = async () => {
       .upsert(allStaff, { onConflict: 'xft_user_id' })
 
     if (error) throw error
-    alert(`成功同步 ${allStaff.length} 名在职人员（已关联 V 开头 ID）`)
+    alert(`成功同步 ${allStaff.length} 名在职人`)
     staffJson.value = '' // 清空输入框
   } catch (err) { 
     alert('员工同步失败: ' + err.message) 
