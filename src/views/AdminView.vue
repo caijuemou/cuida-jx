@@ -36,40 +36,60 @@ import { UserIcon, LayersIcon, LayoutGridIcon } from 'lucide-vue-next'
 const staffJson = ref('')
 const deptJson = ref('')
 
-// 同步员工：剔除 D，保留 A/J 等
+// 同步员工：严格对齐 USRNBR 和核心字段
 const syncStaff = async () => {
   try {
     const parsed = JSON.parse(staffJson.value)
-    const records = parsed.OPUSRLSTY || (parsed.body && parsed.body.records)
+    // 自动兼容两种可能的 JSON 路径
+    const records = parsed.userList || (parsed.body && parsed.body.userList) || (parsed.body && parsed.body.records)
+    
+    if (!records) throw new Error('未能识别的人员列表格式')
+
     const allStaff = records.map(r => ({
-      xft_user_id: r.STFNBR || r.USRNBR || r.STFSEQ,
+      // 【核心修改】主键必须是 USRNBR (V开头那个)
+      xft_user_id: r.USRNBR, 
       name: r.USRNAM,
       dept_name: r.ORGNAM,
+      dept_id: r.ORGSEQ,
       job_title: r.PSTNAM,
-      is_active: r.USRSTS !== 'D' // 剔除 D 状态
-    })).filter(s => s.xft_user_id && s.name)
+      staff_seq: r.STFSEQ,
+      staff_number: r.STFNBR, // 内部工号
+      gender: r.SEXFLG,
+      project_code: r.PRJCOD,
+      status: r.USRSTS,
+      is_active: r.USRSTS === 'A' // 只有 A 状态才算激活
+    })).filter(s => s.xft_user_id && s.name) // 确保必填项存在
 
-    const { error } = await supabase.from('staff_cache').upsert(allStaff, { onConflict: 'xft_user_id' })
+    // 执行 Upsert
+    const { error } = await supabase
+      .from('staff_cache')
+      .upsert(allStaff, { onConflict: 'xft_user_id' })
+
     if (error) throw error
-    alert(`成功同步 ${allStaff.length} 名人员状态`)
-  } catch (err) { alert('员工同步失败: ' + err.message) }
+    alert(`成功同步 ${allStaff.length} 名在职人员（已关联 V 开头 ID）`)
+    staffJson.value = '' // 清空输入框
+  } catch (err) { 
+    alert('员工同步失败: ' + err.message) 
+    console.error(err)
+  }
 }
 
-// 同步部门：解析完整的 namePath
+// 同步部门保持不变，但建议增加 code 作为主键
 const syncDepts = async () => {
   try {
     const parsed = JSON.parse(deptJson.value)
-    const records = parsed.body.records
+    const records = parsed.body.records || parsed.body.deptList
     const depts = records.map(r => ({
-      code: r.code,
-      name: r.name,
+      code: r.code || r.ORGSEQ,
+      name: r.name || r.ORGNAM,
       name_path: r.namePath,
       parent_name: r.parentName
     }))
 
-    const { error } = await supabase.from('dept_cache').upsert(depts)
+    const { error } = await supabase.from('dept_cache').upsert(depts, { onConflict: 'code' })
     if (error) throw error
     alert(`成功同步 ${depts.length} 个部门节点`)
+    deptJson.value = ''
   } catch (err) { alert('架构同步失败: ' + err.message) }
 }
 </script>
