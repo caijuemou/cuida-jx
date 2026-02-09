@@ -46,19 +46,19 @@ const syncStaff = async () => {
     if (!records) throw new Error('未能识别的人员列表格式')
 
     const allStaff = records.map(r => ({
-      // 【核心修改】主键必须是 USRNBR (V开头那个)
+      // 必须确保这个值是 V 开头的！
       xft_user_id: r.USRNBR, 
       name: r.USRNAM,
       dept_name: r.ORGNAM,
       dept_id: r.ORGSEQ,
       job_title: r.PSTNAM,
       staff_seq: r.STFSEQ,
-      staff_number: r.STFNBR, // 内部工号
+      staff_number: r.STFNBR, // CD000x 存这里
       gender: r.SEXFLG,
       project_code: r.PRJCOD,
       status: r.USRSTS,
-      is_active: r.USRSTS === 'A' // 只有 A 状态才算激活
-    })).filter(s => s.xft_user_id && s.xft_user_id.startsWith('V')) // 确保必填项存在
+      is_active: r.USRSTS === 'A'
+    })).filter(s => s.xft_user_id && s.xft_user_id.startsWith('V')) // 增加一个保险过滤
  
     // 执行 Upsert
     const { error } = await supabase
