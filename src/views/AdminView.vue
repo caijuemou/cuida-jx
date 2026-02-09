@@ -39,11 +39,13 @@ const deptJson = ref('')
 // 同步员工：严格对齐 USRNBR 和核心字段
 const syncStaff = async () => {
   try {
-    const parsed = JSON.parse(staffJson.value)
-    // 自动兼容两种可能的 JSON 路径
-    const records = parsed.userList || (parsed.body && parsed.body.userList) || (parsed.body && parsed.body.records)
+    const records = parsed.OPUSRLSTY || 
+                    (parsed.body && parsed.body.userList) || 
+                    (parsed.body && parsed.body.records)
     
-    if (!records) throw new Error('未能识别的人员列表格式')
+    if (!records || !Array.isArray(records)) {
+      throw new Error('未能识别的人员列表格式，请确保数据包含 OPUSRLSTY 或 userList 数组')
+    }
 
     const allStaff = records.map(r => ({
       // 必须确保这个值是 V 开头的！
