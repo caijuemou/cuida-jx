@@ -58,8 +58,8 @@ const syncStaff = async () => {
       project_code: r.PRJCOD,
       status: r.USRSTS,
       is_active: r.USRSTS === 'A' // 只有 A 状态才算激活
-    })).filter(s => s.xft_user_id && s.name) // 确保必填项存在
-
+    })).filter(s => s.xft_user_id && s.xft_user_id.startsWith('V')) // 确保必填项存在
+ 
     // 执行 Upsert
     const { error } = await supabase
       .from('staff_cache')
