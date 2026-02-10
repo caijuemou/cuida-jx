@@ -241,10 +241,20 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 针对图表高度的移动端优化 */
+/* 针对图表高度的移动端优化：使用标准的 CSS 语法 */
 @media (max-width: 768px) {
-  .min-h-\[450px\] {
-    min-h-[350px];
+  .min-h-chart {
+    min-height: 300px !important;
   }
+}
+
+/* 简单的淡入动画 */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>
