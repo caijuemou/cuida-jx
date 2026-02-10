@@ -45,7 +45,7 @@
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">考核日期</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">被考核人</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">所属门店</th>
-            <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">考核项目/描述</th>
+            <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">考核详情</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">分值</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">通知状态</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">操作</th>
@@ -56,39 +56,35 @@
             <td class="p-5 text-sm font-bold text-gray-500">{{ log.score_date }}</td>
             <td class="p-5">
               <div class="font-black text-gray-800">{{ log.staff_name }}</div>
-              <div class="text-[10px] text-gray-400 font-bold">ID: {{ log.staff_v_id }}</div>
+              <div class="text-[10px] text-gray-400 font-bold italic">发起人: {{ log.starter_name }}</div>
             </td>
             <td class="p-5 text-sm font-bold text-indigo-600">{{ log.store_name }}</td>
             <td class="p-5">
               <div class="text-sm font-bold text-gray-800">{{ log.sub_category }}</div>
-              <div class="text-[10px] text-gray-400 uppercase font-bold">{{ log.category }}</div>
             </td>
-            <td class="p-5 text-center">
-              <span class="text-lg font-black text-rose-500">{{ log.final_score }}</span>
-            </td>
+            <td class="p-5 text-center font-black text-rose-500 text-lg">{{ log.final_score }}</td>
             <td class="p-5">
               <div class="flex items-center gap-2">
-                <span v-if="log.sync_status === 'sent'" class="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] rounded-lg font-black">
-                  <CheckCircleIcon :size="12" /> 已通知
+                <span v-if="log.sync_status === 'sent'" class="px-2 py-1 bg-emerald-50 text-emerald-600 text-[10px] rounded-lg font-black flex items-center gap-1">
+                  <CheckCircleIcon :size="12" /> 已送达
                 </span>
-                <span v-else-if="log.sync_status === 'failed'" class="flex items-center gap-1 px-2 py-1 bg-rose-50 text-rose-600 text-[10px] rounded-lg font-black">
-                  <AlertCircleIcon :size="12" /> 发送失败
+                <span v-else-if="log.sync_status === 'failed'" class="px-2 py-1 bg-rose-50 text-rose-600 text-[10px] rounded-lg font-black flex items-center gap-1">
+                  <AlertCircleIcon :size="12" /> 失败
                 </span>
-                <span v-else class="px-2 py-1 bg-gray-100 text-gray-400 text-[10px] rounded-lg font-black">未发送</span>
-                
-                <button v-if="log.sync_status === 'failed' || !log.sync_status" 
+                <button v-if="log.sync_status === 'failed' && log.starter_id === myVNumber" 
                         @click="retryPush(log)"
-                        :disabled="retryingId === log.id"
-                        class="p-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-300 transition-colors shadow-sm shadow-indigo-100"
-                        title="重新推送通知">
+                        class="p-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
                   <RotateCwIcon :size="12" :class="{'animate-spin': retryingId === log.id}" />
                 </button>
               </div>
             </td>
             <td class="p-5 text-right">
-              <button @click="openEdit(log)" class="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
+              <button v-if="log.starter_id === myVNumber" 
+                      @click="openEdit(log)" 
+                      class="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
                 <Edit3Icon :size="18" />
               </button>
+              <span v-else class="text-[10px] text-gray-300 font-bold italic">只读模式</span>
             </td>
           </tr>
         </tbody>
@@ -99,53 +95,40 @@
       <div v-for="log in filteredLogs" :key="log.id" class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
         <div class="flex justify-between items-start mb-3">
           <div>
-            <div class="text-xs font-black text-indigo-500 uppercase tracking-tighter">{{ log.store_name }}</div>
+            <div class="text-xs font-black text-indigo-500 uppercase">{{ log.store_name }}</div>
             <div class="text-lg font-black text-gray-900">{{ log.staff_name }}</div>
           </div>
-          <div class="text-right">
-            <div class="text-2xl font-black text-rose-500">{{ log.final_score }}分</div>
-            <div class="mt-1 flex justify-end gap-2">
-              <span v-if="log.sync_status === 'sent'" class="text-[10px] font-black text-emerald-500 italic">● 已推送</span>
-              <button v-if="log.sync_status === 'failed'" @click="retryPush(log)" class="text-[10px] font-black text-rose-500 underline">重试推送</button>
-            </div>
-          </div>
+          <div class="text-2xl font-black text-rose-500">{{ log.final_score }}分</div>
         </div>
-        <div class="bg-gray-50 p-3 rounded-2xl text-sm font-bold text-gray-600 mb-4">
-          <div class="text-[10px] text-gray-400">{{ log.category }}</div>
-          {{ log.sub_category }}
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-[10px] font-bold text-gray-400 italic">{{ log.score_date }}</span>
-          <button @click="openEdit(log)" class="px-4 py-2 bg-slate-900 text-white text-xs font-black rounded-xl shadow-lg">编辑记录</button>
+        <div class="text-sm font-bold text-gray-600 mb-4">{{ log.sub_category }}</div>
+        <div class="flex justify-between items-center border-t border-gray-50 pt-3">
+          <span class="text-[10px] font-bold text-gray-400 uppercase italic">By: {{ log.starter_name }}</span>
+          <button v-if="log.starter_id === myVNumber" 
+                  @click="openEdit(log)" 
+                  class="px-4 py-2 bg-slate-900 text-white text-xs font-black rounded-xl">编辑</button>
         </div>
       </div>
     </div>
 
-    <div v-if="filteredLogs.length === 0" class="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-gray-100">
-      <div class="text-gray-200 mb-4 flex justify-center"><ClipboardXIcon :size="64" /></div>
-      <p class="text-gray-400 font-bold">未找到符合条件的考核记录</p>
-    </div>
-
     <div v-if="isModalOpen" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+      <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
         <div class="flex justify-between items-center mb-6">
-          <h3 class="text-xl font-black text-gray-900">修改考核信息</h3>
-          <button @click="isModalOpen = false" class="p-2 bg-gray-100 rounded-full text-gray-400 hover:bg-gray-200 transition-colors"><XIcon :size="20"/></button>
+          <h3 class="text-xl font-black text-gray-900">修改考核记录</h3>
+          <button @click="isModalOpen = false" class="p-2 bg-gray-100 rounded-full text-gray-400"><XIcon :size="20"/></button>
         </div>
         <div class="space-y-6">
           <div class="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-            <div class="text-xs text-indigo-400 font-black uppercase mb-1">被考核人</div>
-            <div class="font-black text-indigo-900 text-lg">{{ editingLog.staff_name }}</div>
-            <div class="text-sm text-indigo-700/70 font-bold mt-2 italic">{{ editingLog.sub_category }}</div>
+            <div class="text-xs text-indigo-400 font-black mb-1 italic">考核详情</div>
+            <div class="font-black text-indigo-900">{{ editingLog.sub_category }}</div>
           </div>
           <div>
-            <label class="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">修正分值</label>
-            <input v-model="editingLog.final_score" type="text" 
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl font-black text-2xl text-rose-500 transition-all outline-none" />
+            <label class="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">分值修正</label>
+            <input v-model="editingLog.final_score" type="number" 
+                   class="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl font-black text-2xl text-rose-500" />
           </div>
           <div class="grid grid-cols-2 gap-3 pt-2">
-            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm hover:bg-rose-100 transition-colors">删除这条记录</button>
-            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors">保存所有修改</button>
+            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm">删除记录</button>
+            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100">保存修改</button>
           </div>
         </div>
       </div>
@@ -166,10 +149,14 @@ const logs = ref([])
 const filterQuery = ref('')
 const isModalOpen = ref(false)
 const editingLog = ref(null)
-const retryingId = ref(null) 
-const staffTree = ref({})    
+const retryingId = ref(null)
+const staffTree = ref({})
 
-// --- 日期处理逻辑 ---
+// 获取当前登录用户信息
+const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+const myVNumber = me.xft_user_id
+
+// --- 日期处理 ---
 const formatDate = (date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -193,7 +180,7 @@ const setToLastMonth = () => {
 const isThisMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth(), 1)))
 const isLastMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
 
-// --- 数据加载 ---
+// --- 加载数据 (增加了 starter_id, starter_name) ---
 const loadLogs = async () => {
   const { data, error } = await supabase
     .from('perf_records')
@@ -206,18 +193,16 @@ const loadLogs = async () => {
       staff_v_id:target_user_id,
       category:category_label,
       sub_category:description,
-      sync_status
+      sync_status,
+      starter_id,
+      starter_name
     `)
     .order('record_date', { ascending: false })
   
-  if (error) {
-    console.error("加载记录失败:", error.message)
-  } else {
-    logs.value = data || []
-  }
+  if (error) console.error("加载失败:", error.message)
+  else logs.value = data || []
 }
 
-// 加载职员数据用于补发通知时查找店长
 const loadStaffData = async () => {
   const { data } = await supabase.from('staff_cache').select('*').eq('is_active', true)
   const tree = {}
@@ -228,13 +213,11 @@ const loadStaffData = async () => {
   staffTree.value = tree
 }
 
-// --- 补发通知核心逻辑 ---
+// --- 补发逻辑 ---
 const retryPush = async (log) => {
   if (retryingId.value) return
   retryingId.value = log.id
-
   try {
-    // 1. 查找抄送店长 ID
     let ccVId = null
     const staffInDept = staffTree.value[log.store_name] || []
     const manager = staffInDept.find(s => 
@@ -243,7 +226,6 @@ const retryPush = async (log) => {
     )
     if (manager) ccVId = manager.xft_user_id
 
-    // 2. 调用后端 Edge Function
     const { error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
       body: { 
         target_user_id: log.staff_v_id, 
@@ -253,19 +235,14 @@ const retryPush = async (log) => {
         manager_v_id: ccVId 
       } 
     })
+    if (invokeError) throw new Error("推送接口异常")
 
-    if (invokeError) throw new Error("推送失败")
-
-    // 3. 成功后同步更新数据库状态
     await supabase.from('perf_records').update({ sync_status: 'sent' }).eq('id', log.id)
-
-    // 4. UI 局部更新
     const item = logs.value.find(l => l.id === log.id)
     if (item) item.sync_status = 'sent'
-    
-    alert('🚀 通知补发成功！')
+    alert('🚀 补发成功')
   } catch (err) {
-    alert('❌ 补发失败，请联系系统管理员')
+    alert('❌ 补发失败')
   } finally {
     retryingId.value = null
   }
@@ -284,23 +261,6 @@ const filteredLogs = computed(() => {
   })
 })
 
-// --- Excel 导出 ---
-const exportToExcel = () => {
-  const exportData = filteredLogs.value.map(log => ({
-    '日期': log.score_date,
-    '姓名': log.staff_name,
-    '工号': log.staff_v_id,
-    '门店': log.store_name,
-    '项目详情': log.sub_category,
-    '分值': log.final_score,
-    '发送状态': log.sync_status === 'sent' ? '已送达' : '未成功'
-  }))
-  const ws = XLSX.utils.json_to_sheet(exportData)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, "Records")
-  XLSX.writeFile(wb, `考核记录_${startDate.value}.xlsx`)
-}
-
 // --- 操作逻辑 ---
 const openEdit = (log) => {
   editingLog.value = { ...log }
@@ -308,6 +268,12 @@ const openEdit = (log) => {
 }
 
 const handleUpdate = async () => {
+  // 安全校验
+  if (editingLog.value.starter_id !== myVNumber) {
+    alert('无权修改非本人发起的记录')
+    return
+  }
+
   const { error } = await supabase
     .from('perf_records')
     .update({ score_value: String(editingLog.value.final_score) })
@@ -321,12 +287,27 @@ const handleUpdate = async () => {
 }
 
 const handleDelete = async () => {
-  if (!confirm('确认要永久删除这条考核记录吗？')) return
+  if (editingLog.value.starter_id !== myVNumber) {
+    alert('无权删除非本人发起的记录')
+    return
+  }
+  if (!confirm('确定删除？')) return
   const { error } = await supabase.from('perf_records').delete().eq('id', editingLog.value.id)
   if (!error) {
     isModalOpen.value = false
     loadLogs()
   }
+}
+
+const exportToExcel = () => {
+  const exportData = filteredLogs.value.map(log => ({
+    '日期': log.score_date, '姓名': log.staff_name, '门店': log.store_name,
+    '考核详情': log.sub_category, '分值': log.final_score, '发起人': log.starter_name
+  }))
+  const ws = XLSX.utils.json_to_sheet(exportData)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, "Records")
+  XLSX.writeFile(wb, `绩效考核台账_${startDate.value}.xlsx`)
 }
 
 onMounted(() => {
