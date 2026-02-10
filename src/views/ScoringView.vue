@@ -264,15 +264,28 @@ const currentItemOptions = computed(() => {
 // --- 4. 动作处理函数 ---
 
 const handleStaffStepClick = (val) => {
-  if (staffStep.value === 1) { currentRegion.value = val; staffStep.value = 2 }
-  else if (staffStep.value === 2) { currentDistrict.value = val; staffStep.value = 3 }
-  else if (staffStep.value === 3) { currentDept.value = val; staffStep.value = 4 }
-  else { selectStaff(val) }
-}
-
-const handleItemStepClick = (val) => {
-  if (itemStep.value === 1) { currentCategory.value = val; itemStep.value = 2 }
-  else { selectItem(val) }
+  if (staffStep.value === 1) {
+    currentRegion.value = val;
+    const nextOptions = Object.keys(staffTree.value[val] || {});
+    staffStep.value = 2;
+  } 
+  else if (staffStep.value === 2) {
+    currentDistrict.value = val;
+    const nextOptions = Object.keys(staffTree.value[currentRegion.value][val] || {});
+    ons[0] === val) {
+      currentDept.value = val;
+      staffStep.value = 4;
+    } else {
+      staffStep.value = 3;
+    }
+  } 
+  else if (staffStep.value === 3) {
+    currentDept.value = val;
+    staffStep.value = 4;
+  } 
+  else {
+    selectStaff(val);
+  }
 }
 
 const selectStaff = (s) => {
