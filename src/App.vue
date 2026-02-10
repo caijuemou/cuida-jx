@@ -11,7 +11,7 @@
             />
           </div>
           <div class="text-lg font-black tracking-tighter uppercase">
-            CUIDA <span class="text-indigo-600">Performance</span>
+            CUìDA <span class="text-indigo-600">Performance</span>
           </div>
         </div>
 
