@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import legacy from '@vitejs/plugin-legacy'
 
 export default defineConfig({
-  plugins: [vue()],
-  build: {
-    // 设置兼容目标，es2015 或更高版本
-    target: 'es2015', 
-  }
+  plugins: [
+    vue(),
+    legacy({
+      targets: ['defaults', 'not IE 11'], // 覆盖大多数现代和主流旧版浏览器
+    }),
+  ],
 })
