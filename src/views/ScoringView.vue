@@ -133,25 +133,108 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from '../composables/useSupabase'
-import { SearchIcon, UserIcon, XIcon, ChevronRightIcon, ChevronLeftIcon, CheckCircleIcon, LayersIcon, HistoryIcon, LayoutGridIcon } from 'lucide-vue-next'
+import { 
+  SearchIcon, UserIcon, XIcon, ChevronRightIcon, 
+  ChevronLeftIcon, CheckCircleIcon, LayersIcon, 
+  HistoryIcon, LayoutGridIcon 
+} from 'lucide-vue-next'
 
-// --- 状态定义 ---
-const form = ref({ staff_id: '', staff_name: '', store_name: '', date: new Date().toISOString().split('T')[0], item_id: '', item_name: '', score: 0, operator_name: '管理员', operator_dept: '运营部' })
-const allItems = ref([]); const staffTree = ref({}); const submitting = ref(false)
-const searchStaffQuery = ref(''); const staffSearchResults = ref([])
-const searchItemQuery = ref(''); const itemSearchResults = ref([])
+// --- 1. 状态定义 ---
+const form = ref({ 
+  staff_id: '', 
+  staff_name: '', 
+  store_name: '', 
+  date: new Date().toISOString().split('T')[0], 
+  item_id: '', 
+  item_name: '', 
+  category_name: '',
+  score: 0 
+})
+
+const allItems = ref([])
+const staffTree = ref({})
+const submitting = ref(false)
+const searchStaffQuery = ref('')
+const staffSearchResults = ref([])
+const searchItemQuery = ref('')
+const itemSearchResults = ref([])
 const isManagerMode = ref(false)
 
-const pickerMode = ref(null); 
-const staffStep = ref(1); 
-const currentRegion = ref(''); 
-const currentDistrict = ref(''); 
+// 选择器控制
+const pickerMode = ref(null) 
+const staffStep = ref(1) 
+const currentRegion = ref('') 
+const currentDistrict = ref('') 
 const currentDept = ref('')
-const itemStep = ref(1); 
-const currentCategory = ref(''); 
+const itemStep = ref(1) 
+const currentCategory = ref('') 
 const standardScore = ref(0)
 
-// --- 标题计算逻辑 ---
+// --- 2. 核心数据加载与权限逻辑 ---
+const loadData = async () => {
+  try {
+    // 获取当前登录者信息
+    const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+    const myVNumber = me.xft_user_id
+
+    // 并行请求数据
+    const [staffRes, deptRes, itemsRes] = await Promise.all([
+      supabase.from('staff_cache').select('*').eq('is_active', true),
+      supabase.from('dept_cache').select('*'),
+      supabase.from('scoring_items').select('*').eq('is_active', true)
+    ])
+
+    // 确定登录人身份
+    const myInfo = staffRes.data?.find(s => s.xft_user_id === myVNumber)
+    const isStoreManager = myInfo?.job_title?.includes('店长') || myInfo?.job_title?.includes('店经理')
+    const myDept = myInfo?.dept_name
+    // 是否为受限店长（非管理组的店长）
+    const isRestrictedManager = isStoreManager && myDept !== '公司管理组'
+
+    const tree = {}
+    
+    staffRes.data?.forEach(s => {
+      // 权限过滤：店长只能看到自己店的人
+      if (isRestrictedManager && s.dept_name !== myDept) return
+
+      const deptInfo = deptRes.data?.find(d => d.name === s.dept_name)
+      const pathParts = deptInfo?.name_path?.split('/') || []
+      
+      let region, district, store
+
+      if (isRestrictedManager) {
+        // 店长权限：简化路径
+        region = '本门店'
+        district = myDept
+        store = s.dept_name
+      } else if (pathParts.length <= 2) {
+        // 职能部门权限（管理组、后勤组等）
+        region = '总部/职能部门'
+        district = s.dept_name
+        store = s.dept_name
+      } else {
+        // 门店三级联动
+        region = pathParts[1] || '其他区域'
+        district = pathParts[2] || '其他网点'
+        store = s.dept_name
+      }
+
+      if (!tree[region]) tree[region] = {}
+      if (!tree[region][district]) tree[region][district] = {}
+      if (!tree[region][district][store]) tree[region][district][store] = []
+      tree[region][district][store].push(s)
+    })
+
+    staffTree.value = tree
+    allItems.value = itemsRes.data || []
+  } catch (err) {
+    console.error("数据加载失败:", err)
+  }
+}
+
+// --- 3. 计算属性与交互逻辑 ---
+
+// 动态标题
 const currentPickerTitle = computed(() => {
   if (pickerMode.value === 'staff') {
     return ['选择区域', '选择片区', '选择门店', '选择人员'][staffStep.value - 1]
@@ -159,88 +242,26 @@ const currentPickerTitle = computed(() => {
   return ['选择考核分类', '点选具体项'][itemStep.value - 1]
 })
 
-// --- 后退逻辑 ---
-const goBack = () => {
-  if (pickerMode.value === 'staff') {
-    if (staffStep.value > 1) staffStep.value--
-  } else if (pickerMode.value === 'item') {
-    if (itemStep.value > 1) itemStep.value--
-  }
-}
-
-// --- 数据加载 ---
-const tree = {}
-staffRes.data?.forEach(s => {
-  // 权限过滤（保留你之前的店长限制逻辑）
-  if (isRestrictedManager && s.dept_name !== myDept) return;
-
-  const deptInfo = deptRes.data?.find(d => d.name === s.dept_name)
-  const pathParts = deptInfo?.name_path?.split('/') || []
-  
-  let region, district, store;
-
-  if (isRestrictedManager) {
-    // 店长模式：扁平化处理
-    region = '本门店';
-    district = myDept;
-    store = s.dept_name;
-  } else if (pathParts.length <= 2) {
-    // 职能部门模式（如：公司管理组、后勤组）
-    region = '总部/职能部门';
-    district = s.dept_name; // 直接把部门当成第二级
-    store = s.dept_name;
-  } else {
-    // 门店模式（三级联动：区域/片区/门店）
-    region = pathParts[1] || '其他区域';
-    district = pathParts[2] || '其他网点';
-    store = s.dept_name;
-  }
-
-  if (!tree[region]) tree[region] = {};
-  if (!tree[region][district]) tree[region][district] = {};
-  if (!tree[region][district][store]) tree[region][district][store] = [];
-  tree[region][district][store].push(s);
-})
-
-// --- 过滤逻辑 ---
-const filteredItems = computed(() => {
-  const role = isManagerMode.value ? 'manager' : 'staff'
-  return allItems.value.filter(i => i.applicable_to === role)
-})
-
-// --- 搜索逻辑 ---
-const handleStaffSearch = async () => {
-  if (searchStaffQuery.value.length < 1) return staffSearchResults.value = []
-  const { data } = await supabase.from('staff_cache').select('*').eq('is_active', true)
-    .or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`).limit(10)
-  staffSearchResults.value = data || []
-}
-
-const handleItemSearch = () => {
-  if (searchItemQuery.value.length < 1) return itemSearchResults.value = []
-  itemSearchResults.value = filteredItems.value.filter(i => i.sub_category.includes(searchItemQuery.value)).slice(0, 8)
-}
-
-// --- 选中处理 ---
-const selectStaff = (s) => {
-  form.value.staff_id = s.xft_user_id; form.value.staff_name = s.name; form.value.store_name = s.dept_name
-  const job = s.job_title || ''
-  isManagerMode.value = job.includes('店长') || job.includes('店经理')
-  clearItem(); closePicker()
-}
-
-const selectItem = (i) => {
-  form.value.item_id = i.id; form.value.item_name = i.sub_category; form.value.category_name = i.category; form.value.score = i.score_impact; standardScore.value = i.score_impact
-  closePicker()
-}
-
-// --- 级联选项计算 ---
+// 级联人员选项
 const currentStaffOptions = computed(() => {
   if (staffStep.value === 1) return Object.keys(staffTree.value)
   if (staffStep.value === 2) return Object.keys(staffTree.value[currentRegion.value] || {})
   if (staffStep.value === 3) return Object.keys(staffTree.value[currentRegion.value]?.[currentDistrict.value] || {})
   return staffTree.value[currentRegion.value]?.[currentDistrict.value]?.[currentDept.value] || []
 })
+
+// 级联考核项选项
+const filteredItems = computed(() => {
+  const role = isManagerMode.value ? 'manager' : 'staff'
+  return allItems.value.filter(i => i.applicable_to === role)
+})
+
+const currentItemOptions = computed(() => {
+  if (itemStep.value === 1) return [...new Set(filteredItems.value.map(i => i.category))]
+  return filteredItems.value.filter(i => i.category === currentCategory.value)
+})
+
+// --- 4. 动作处理函数 ---
 
 const handleStaffStepClick = (val) => {
   if (staffStep.value === 1) { currentRegion.value = val; staffStep.value = 2 }
@@ -249,39 +270,68 @@ const handleStaffStepClick = (val) => {
   else { selectStaff(val) }
 }
 
-const currentItemOptions = computed(() => {
-  if (itemStep.value === 1) return [...new Set(filteredItems.value.map(i => i.category))]
-  return filteredItems.value.filter(i => i.category === currentCategory.value)
-})
-
 const handleItemStepClick = (val) => {
   if (itemStep.value === 1) { currentCategory.value = val; itemStep.value = 2 }
   else { selectItem(val) }
 }
 
-// --- 辅助方法 ---
-const clearStaff = () => { form.value.staff_id = ''; form.value.staff_name = ''; isManagerMode.value = false; clearItem() }
-const clearItem = () => { form.value.item_id = ''; form.value.item_name = ''; form.value.score = 0 }
-const openStaffPicker = () => { console.log('打开人员选择器'); pickerMode.value = 'staff'; staffStep.value = 1 }
-const openItemPicker = () => { pickerMode.value = 'item'; itemStep.value = 1 }
-const closePicker = () => { pickerMode.value = null }
-const isReady = computed(() => form.value.staff_id && form.value.item_id)
+const selectStaff = (s) => {
+  form.value.staff_id = s.xft_user_id
+  form.value.staff_name = s.name
+  form.value.store_name = s.dept_name
+  const job = s.job_title || ''
+  isManagerMode.value = job.includes('店长') || job.includes('店经理')
+  clearItem()
+  closePicker()
+}
 
-// --- 提交逻辑 (联动薪福通版) ---
+const selectItem = (i) => {
+  form.value.item_id = i.id
+  form.value.item_name = i.sub_category
+  form.value.category_name = i.category
+  form.value.score = i.score_impact
+  standardScore.value = i.score_impact
+  closePicker()
+}
+
+// 搜索逻辑（包含权限隔离）
+const handleStaffSearch = async () => {
+  if (searchStaffQuery.value.length < 1) return staffSearchResults.value = []
+  
+  const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+  let query = supabase.from('staff_cache').select('*').eq('is_active', true)
+  
+  // 非管理组的店长搜索受限
+  if (me.job_title?.includes('店') && me.dept_name !== '公司管理组') {
+    query = query.eq('dept_name', me.dept_name)
+  }
+
+  const { data } = await query
+    .or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`)
+    .limit(10)
+  staffSearchResults.value = data || []
+}
+
+const handleItemSearch = () => {
+  if (searchItemQuery.value.length < 1) return itemSearchResults.value = []
+  itemSearchResults.value = filteredItems.value.filter(i => 
+    i.sub_category.includes(searchItemQuery.value)
+  ).slice(0, 8)
+}
+
+// --- 5. 提交逻辑 ---
 const submitScore = async () => {
-  if (submitting.value) return;
-  submitting.value = true;
+  if (submitting.value) return
+  submitting.value = true
 
   try {
-    // 0. 获取当前登录者（发起人）
-    const me = JSON.parse(localStorage.getItem('user_info') || '{}');
-    if (!me.xft_user_id) throw new Error("未找到当前登录用户信息，请重新登录");
+    const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+    if (!me.xft_user_id) throw new Error("未登录")
 
-    // 1. 获取选中的被考核人详细信息 (从 staffTree 中通过 ID 找，确保数据完整)
-    const allStaffList = Object.values(staffTree.value).flatMap(d => Object.values(d)).flatMap(s => Object.values(s)).flat();
-    const targetStaff = allStaffList.find(s => s.xft_user_id === form.value.staff_id);
+    // 查找被考核人详细岗位
+    const allStaffList = Object.values(staffTree.value).flatMap(d => Object.values(d)).flatMap(s => Object.values(s)).flat()
+    const targetStaff = allStaffList.find(s => s.xft_user_id === form.value.staff_id)
 
-    // 2. 构造本地数据库记录
     const record = {
       starter_id: me.xft_user_id,
       starter_name: me.name,
@@ -291,56 +341,48 @@ const submitScore = async () => {
       target_job_title: targetStaff?.job_title || '员工',
       category_label: form.value.category_name,
       score_value: String(form.value.score),
-      description: `考核项: ${form.value.item_name}，分值: ${form.value.score}`,
+      description: `考核项: ${form.value.item_name}`,
       record_date: form.value.date
-    };
-
-    // 3. 插入本地数据库 perf_records (你刚才建的表)
-    const { data: dbData, error: dbError } = await supabase
-      .from('perf_records')
-      .insert(record)
-      .select()
-      .single();
-
-    if (dbError) throw new Error("本地保存失败: " + dbError.message);
-
-    // 4. 联动薪福通：调用 Edge Function
-    // 注意：确保你已经在终端执行过 supabase functions deploy xft-start-flow
-    const { data: xftData, error: invokeError } = await supabase.functions.invoke('xft-start-flow', {
-      body: { record: dbData } 
-    });
-
-    if (invokeError) throw new Error("连接 Edge Function 失败: " + invokeError.message);
-
-    // 5. 判断招行真实的返回码 (由 Gateway 解密后传回)
-    if (xftData?.returnCode === "SUC0000") {
-      await supabase
-        .from('perf_records')
-        .update({ 
-          xft_proc_inst_id: xftData.body?.procInstId,
-          sync_status: 'success' 
-        })
-        .eq('id', dbData.id);
-
-      alert(`✅ 提交成功！单号: ${xftData.body.procInstId}`);
-      clearStaff();
-    } else {
-      // 处理招行具体的业务报错 (比如你之前的 OA0F004)
-      const errorMsg = xftData?.errorMsg || "招行接口报错";
-      
-      // 更新本地状态为同步失败
-      await supabase.from('perf_records').update({ sync_status: 'failed' }).eq('id', dbData.id);
-      
-      throw new Error(errorMsg);
     }
 
+    const { data: dbData, error: dbError } = await supabase.from('perf_records').insert(record).select().single()
+    if (dbError) throw dbError
+
+    // 联动薪福通 Edge Function
+    const { data: xftData, error: invokeError } = await supabase.functions.invoke('xft-start-flow', {
+      body: { record: dbData } 
+    })
+
+    if (invokeError) throw invokeError
+
+    if (xftData?.returnCode === "SUC0000") {
+      await supabase.from('perf_records').update({ 
+        xft_proc_inst_id: xftData.body?.procInstId, 
+        sync_status: 'success' 
+      }).eq('id', dbData.id)
+      alert("✅ 提交成功")
+      clearStaff()
+    } else {
+      throw new Error(xftData?.errorMsg || "同步失败")
+    }
   } catch (err) {
-    console.error('提交异常:', err);
-    alert('❌ 操作失败: ' + err.message);
+    alert('❌ 操作失败: ' + err.message)
   } finally {
-    submitting.value = false;
+    submitting.value = false
   }
-};
+}
+
+// --- 6. 辅助工具 ---
+const goBack = () => {
+  if (pickerMode.value === 'staff' && staffStep.value > 1) staffStep.value--
+  else if (pickerMode.value === 'item' && itemStep.value > 1) itemStep.value--
+}
+const clearStaff = () => { form.value.staff_id = ''; form.value.staff_name = ''; isManagerMode.value = false; clearItem() }
+const clearItem = () => { form.value.item_id = ''; form.value.item_name = ''; form.value.score = 0 }
+const openStaffPicker = () => { pickerMode.value = 'staff'; staffStep.value = 1 }
+const openItemPicker = () => { pickerMode.value = 'item'; itemStep.value = 1 }
+const closePicker = () => { pickerMode.value = null }
+const isReady = computed(() => form.value.staff_id && form.value.item_id)
 
 onMounted(loadData)
 </script>
