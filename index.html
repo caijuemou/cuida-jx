@@ -1,15 +1,52 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CUIDA员工绩效考核系统</title>
+import { createApp } from 'vue'
+import './assets/tailwind.css'
+import App from './App.vue'
+import router from './router'
 
-    <script src="https://xft.cmbchina.com/sdk/cmbTrack.js"></script>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
-</html>
+const app = createApp(App)
+
+// --- 招行埋点集成开始 ---
+// 1. 定义初始化方法
+const initCmbTrack = () => {
+  const cmbTrackLib = window.cmbTrackLib
+  if (cmbTrackLib) {
+    try {
+      // 初始化配置
+      cmbTrackLib.init({
+        apiHost: 'https://lf12-32-gateway.paas.cmbchina.com/front-rest-log/v2/encrypt_upload', // 参考环境地址
+        uploadID: '0692caa6-c700-403f-8667-96cd41adfca5', // 你的 AppId
+        autoTrack: true,
+        logTrack: true,
+        apiInvoke: true
+      })
+
+      // 获取并绑定用户身份 (aliasID)
+      const urlParams = new URLSearchParams(window.location.search)
+      const data = urlParams.get('data')
+      if (data) {
+        const theRequestData = encodeURIComponent(data.replace(/''/g, '+'))
+        cmbTrackLib.aliasID(theRequestData)
+        console.log('埋点身份绑定成功')
+      }
+
+      // 挂载到 Vue 3 全局，方便在组件内通过 this.cmbTrackLib 调用
+      app.config.globalProperties.cmbTrackLib = cmbTrackLib
+    } catch (e) {
+      console.error('埋点初始化异常:', e)
+    }
+  }
+}
+
+// 2. 错误拦截 (上报到招行后台)
+app.config.errorHandler = (error) => {
+  console.error('Captured Error:', error)
+  if (window.cmbTrackLib) {
+    window.cmbTrackLib.NgNotify_Error(error)
+  }
+}
+// --- 招行埋点集成结束 ---
+
+app.use(router).mount('#app')
+
+// 在页面加载完成后执行初始化，避免阻塞主线程
+window.addEventListener('load', initCmbTrack)
