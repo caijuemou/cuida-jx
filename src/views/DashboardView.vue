@@ -30,7 +30,7 @@
     </div>
 
     <div v-if="hasData" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div class="lg:col-span-2 bg-slate-900/40 rounded-[2rem] p-6 md:p-8 border border-slate-800 flex flex-col min-h-[450px]">
+      <div class="lg:col-span-2 bg-slate-900/40 rounded-[2rem] p-6 md:p-8 border border-slate-800 flex flex-col min-h-[450px] min-h-chart">
         <h3 class="text-lg font-black flex items-center mb-6">
           <div class="w-2 h-6 bg-blue-500 rounded-full mr-3 shadow-[0_0_15px_rgba(59,130,246,0.5)]"></div>
           门店扣分汇总 (Top 15)
