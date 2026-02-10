@@ -169,25 +169,38 @@ const goBack = () => {
 }
 
 // --- 数据加载 ---
-const loadData = async () => {
-  const [staffRes, deptRes, itemsRes] = await Promise.all([
-    supabase.from('staff_cache').select('*').eq('is_active', true),
-    supabase.from('dept_cache').select('*'),
-    supabase.from('scoring_items').select('*').eq('is_active', true)
-  ])
-  const tree = {}
-  staffRes.data?.forEach(s => {
-    const deptInfo = deptRes.data?.find(d => d.name === s.dept_name)
-    const pathParts = deptInfo?.name_path?.split('/') || []
-    const region = pathParts[1] || '其他区域', district = pathParts[2] || '其他网点', store = s.dept_name
-    if (!tree[region]) tree[region] = {}
-    if (!tree[region][district]) tree[region][district] = {}
-    if (!tree[region][district][store]) tree[region][district][store] = []
-    tree[region][district][store].push(s)
-  })
-  staffTree.value = tree
-  allItems.value = itemsRes.data || []
-}
+const tree = {}
+staffRes.data?.forEach(s => {
+  // 权限过滤（保留你之前的店长限制逻辑）
+  if (isRestrictedManager && s.dept_name !== myDept) return;
+
+  const deptInfo = deptRes.data?.find(d => d.name === s.dept_name)
+  const pathParts = deptInfo?.name_path?.split('/') || []
+  
+  let region, district, store;
+
+  if (isRestrictedManager) {
+    // 店长模式：扁平化处理
+    region = '本门店';
+    district = myDept;
+    store = s.dept_name;
+  } else if (pathParts.length <= 2) {
+    // 职能部门模式（如：公司管理组、后勤组）
+    region = '总部/职能部门';
+    district = s.dept_name; // 直接把部门当成第二级
+    store = s.dept_name;
+  } else {
+    // 门店模式（三级联动：区域/片区/门店）
+    region = pathParts[1] || '其他区域';
+    district = pathParts[2] || '其他网点';
+    store = s.dept_name;
+  }
+
+  if (!tree[region]) tree[region] = {};
+  if (!tree[region][district]) tree[region][district] = {};
+  if (!tree[region][district][store]) tree[region][district][store] = [];
+  tree[region][district][store].push(s);
+})
 
 // --- 过滤逻辑 ---
 const filteredItems = computed(() => {
