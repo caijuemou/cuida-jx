@@ -356,7 +356,7 @@ const submitScore = async () => {
      * 3. 只有当考核人来自【管理组/总部】时，才触发抄送。
      */
     let carbonCopyVId = null
-    const isFromManagement = me.dept_name?.includes('管理组') || me.dept_name?.includes('总部')
+    const isFromManagement = me.dept_name?.includes('公司管理组') || me.dept_name?.includes('后勤组')
 
     if (isFromManagement && !isManagerMode.value) {
       // 从 staffTree 缓存中获取当前所选门店的所有员工
