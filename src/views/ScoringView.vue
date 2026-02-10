@@ -383,12 +383,15 @@ const submitScore = async () => {
       category_label: form.value.category_name,
       score_value: String(form.value.score),
       description: `考核项: ${form.value.item_name}`,
-      record_date: form.value.date
+      record_date: form.value.date,
+	  sync_status: 'pending'
     }
 
-    const { error: dbError } = await supabase
+    const { data: dbData, error: dbError } = await supabase
       .from('perf_records')
       .insert(record)
+      .select()
+      .single()
 
     if (dbError) throw new Error("数据库记录保存失败: " + dbError.message)
 
@@ -402,6 +405,12 @@ const submitScore = async () => {
         manager_v_id: carbonCopyVId // 这里的键名与后端解构的保持一致
       } 
     })
+
+    const finalStatus = !invokeError ? 'sent' : 'failed'
+    await supabase
+      .from('perf_records')
+      .update({ sync_status: finalStatus })
+      .eq('id', dbData.id)
 
     // --- 3. 成功后的交互 ---
     if (invokeError) {
