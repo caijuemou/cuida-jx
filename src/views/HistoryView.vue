@@ -32,7 +32,7 @@
       </div>
 
       <div class="relative w-full">
-        <input v-model="filterQuery" type="text" placeholder="快速定位姓名、门店、V号或关键词..." 
+        <input v-model="filterQuery" type="text" placeholder="搜索姓名、工号、门店或考核项..." 
                class="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl text-sm font-bold transition-all focus:ring-0" />
         <SearchIcon class="absolute left-4 top-4 text-gray-300" :size="20" />
       </div>
@@ -45,8 +45,8 @@
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">考核日期</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">被考核人</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">所属门店</th>
-            <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">考核项目</th>
-            <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">分值 (实际/标准)</th>
+            <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">大类 / 考核项目</th>
+            <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">分值</th>
             <th class="p-5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">管理</th>
           </tr>
         </thead>
@@ -54,17 +54,16 @@
           <tr v-for="log in filteredLogs" :key="log.id" class="hover:bg-slate-50/80 transition-colors group">
             <td class="p-5 text-sm font-bold text-gray-500">{{ log.score_date }}</td>
             <td class="p-5">
-              <div class="font-black text-gray-800">{{ log.staff_cache?.name || '未知' }}</div>
-              <div class="text-[10px] text-gray-400 font-bold">ID: {{ log.staff_cache?.xft_user_id }}</div>
+              <div class="font-black text-gray-800">{{ log.staff_name }}</div>
+              <div class="text-[10px] text-gray-400 font-bold">ID: {{ log.staff_v_id }}</div>
             </td>
-            <td class="p-5 text-sm font-bold text-indigo-600">{{ log.store_name }}</td>
+            <td class="p-5 text-sm font-bold text-indigo-600">{{ log.store_name || '未填' }}</td>
             <td class="p-5">
-              <div class="text-sm font-bold text-gray-800">{{ log.scoring_items?.sub_category }}</div>
-              <div class="text-[10px] text-gray-400 uppercase font-bold">{{ log.scoring_items?.category }}</div>
+              <div class="text-sm font-bold text-gray-800">{{ log.sub_category }}</div>
+              <div class="text-[10px] text-gray-400 uppercase font-bold">{{ log.category }}</div>
             </td>
             <td class="p-5 text-center">
               <span class="text-lg font-black text-rose-500">{{ log.final_score }}</span>
-              <span class="text-xs font-bold text-gray-300"> / {{ log.scoring_items?.score_impact }}</span>
             </td>
             <td class="p-5 text-right">
               <button @click="openEdit(log)" class="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all">
@@ -81,48 +80,47 @@
         <div class="flex justify-between items-start mb-3">
           <div>
             <div class="text-xs font-black text-indigo-500 uppercase tracking-tighter">{{ log.store_name }}</div>
-            <div class="text-lg font-black text-gray-900">{{ log.staff_cache?.name }}</div>
+            <div class="text-lg font-black text-gray-900">{{ log.staff_name }}</div>
           </div>
           <div class="text-right">
-            <div class="text-2xl font-black text-rose-500">{{ log.final_score }}</div>
-            <div class="text-[10px] text-gray-400 font-bold">标准: {{ log.scoring_items?.score_impact }}</div>
+            <div class="text-2xl font-black text-rose-500">{{ log.final_score }}分</div>
           </div>
         </div>
         <div class="bg-gray-50 p-3 rounded-2xl text-sm font-bold text-gray-600 mb-4">
-          {{ log.scoring_items?.sub_category }}
+          <div class="text-[10px] text-gray-400">{{ log.category }}</div>
+          {{ log.sub_category }}
         </div>
         <div class="flex justify-between items-center">
           <span class="text-[10px] font-bold text-gray-400 italic">{{ log.score_date }}</span>
-          <button @click="openEdit(log)" class="px-4 py-2 bg-slate-900 text-white text-xs font-black rounded-xl">编辑详情</button>
+          <button @click="openEdit(log)" class="px-4 py-2 bg-slate-900 text-white text-xs font-black rounded-xl">编辑</button>
         </div>
       </div>
     </div>
 
     <div v-if="filteredLogs.length === 0" class="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-gray-100">
       <div class="text-gray-200 mb-4 flex justify-center"><ClipboardXIcon :size="64" /></div>
-      <p class="text-gray-400 font-bold">该时间段内暂无考核记录</p>
+      <p class="text-gray-400 font-bold">未找到符合条件的考核记录</p>
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
         <div class="flex justify-between items-center mb-6">
-          <h3 class="text-xl font-black text-gray-900">修改扣分记录</h3>
+          <h3 class="text-xl font-black text-gray-900">修改分值</h3>
           <button @click="isModalOpen = false" class="p-2 bg-gray-100 rounded-full text-gray-400"><XIcon :size="20"/></button>
         </div>
         <div class="space-y-6">
           <div class="p-4 bg-indigo-50 rounded-2xl">
-            <div class="text-xs text-indigo-400 font-bold uppercase mb-1">正在编辑</div>
-            <div class="font-black text-indigo-900">{{ editingLog.staff_cache?.name }} · {{ editingLog.store_name }}</div>
-            <div class="text-sm text-indigo-700/70 font-bold mt-1">{{ editingLog.scoring_items?.sub_category }}</div>
+            <div class="font-black text-indigo-900">{{ editingLog.staff_name }}</div>
+            <div class="text-sm text-indigo-700/70 font-bold mt-1">{{ editingLog.sub_category }}</div>
           </div>
           <div>
-            <label class="block text-xs font-black text-gray-400 uppercase mb-2">修正实际扣分</label>
-            <input v-model.number="editingLog.final_score" type="number" 
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 focus:ring-0 rounded-2xl font-black text-2xl text-rose-500" />
+            <label class="block text-xs font-black text-gray-400 uppercase mb-2">修正分值</label>
+            <input v-model="editingLog.final_score" type="text" 
+                   class="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl font-black text-2xl text-rose-500" />
           </div>
           <div class="grid grid-cols-2 gap-3">
-            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm hover:bg-rose-100 transition-colors">删除本条</button>
-            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">保存修改</button>
+            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm">删除记录</button>
+            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100">保存修改</button>
           </div>
         </div>
       </div>
@@ -141,11 +139,7 @@ const filterQuery = ref('')
 const isModalOpen = ref(false)
 const editingLog = ref(null)
 
-// --- 日期初始化逻辑 ---
-const now = new Date()
-const y = now.getFullYear()
-const m = now.getMonth()
-
+// --- 日期处理 ---
 const formatDate = (date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -153,23 +147,23 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`
 }
 
-const startDate = ref(formatDate(new Date(y, m, 1)))
-const endDate = ref(formatDate(new Date(y, m + 1, 0)))
+const now = new Date()
+const startDate = ref(formatDate(new Date(now.getFullYear(), now.getMonth(), 1)))
+const endDate = ref(formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)))
 
 const setToThisMonth = () => {
-  startDate.value = formatDate(new Date(y, m, 1))
-  endDate.value = formatDate(new Date(y, m + 1, 0))
+  startDate.value = formatDate(new Date(now.getFullYear(), now.getMonth(), 1))
+  endDate.value = formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0))
 }
 const setToLastMonth = () => {
-  const prevMonth = new Date(y, m - 1, 1)
-  startDate.value = formatDate(prevMonth)
-  endDate.value = formatDate(new Date(y, m, 0))
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  startDate.value = formatDate(prev)
+  endDate.value = formatDate(new Date(now.getFullYear(), now.getMonth(), 0))
 }
+const isThisMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth(), 1)))
+const isLastMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
 
-const isThisMonth = computed(() => startDate.value === formatDate(new Date(y, m, 1)))
-const isLastMonth = computed(() => startDate.value === formatDate(new Date(y, m - 1, 1)))
-
-// --- 数据加载 (修正了别名映射) ---
+// --- 加载数据 (精准对齐你的建表语句) ---
 const loadLogs = async () => {
   const { data, error } = await supabase
     .from('perf_records')
@@ -178,58 +172,56 @@ const loadLogs = async () => {
       final_score:score_value,   
       score_date:record_date,    
       store_name:target_dept_name,
-      staff_cache:target_user_id ( name, xft_user_id ),
-      scoring_items:category_label ( category:category_name, sub_category:item_name, score_impact )
+      staff_name:target_name,
+      staff_v_id:target_user_id,
+      category:category_label,
+      sub_category:description
     `)
     .order('record_date', { ascending: false })
   
   if (error) {
-    console.error("加载台账失败:", error.message)
+    console.error("加载失败:", error.message)
   } else {
     logs.value = data || []
   }
 }
 
-// --- 搜索与过滤逻辑 (修正变量名) ---
+// --- 过滤逻辑 ---
 const filteredLogs = computed(() => {
-  let result = logs.value
-
-  if (startDate.value && endDate.value) {
-    result = result.filter(l => l.score_date >= startDate.value && l.score_date <= endDate.value)
-  }
-
-  if (filterQuery.value) {
+  return logs.value.filter(l => {
+    // 1. 日期区间过滤
+    const inDate = l.score_date >= startDate.value && l.score_date <= endDate.value
+    // 2. 关键词模糊过滤
     const q = filterQuery.value.toLowerCase()
-    result = result.filter(l => 
-      l.staff_cache?.name?.toLowerCase().includes(q) || 
-      l.staff_cache?.xft_user_id?.toLowerCase().includes(q) ||
+    const inQuery = !q || 
+      l.staff_name?.toLowerCase().includes(q) || 
+      l.staff_v_id?.toLowerCase().includes(q) ||
       l.store_name?.toLowerCase().includes(q) ||
-      l.scoring_items?.sub_category?.toLowerCase().includes(q)
-    )
-  }
-  return result
+      l.sub_category?.toLowerCase().includes(q)
+    
+    return inDate && inQuery
+  })
 })
 
-// --- 导出逻辑 ---
+// --- 报表导出 ---
 const exportToExcel = () => {
   const exportData = filteredLogs.value.map(log => ({
     '考核日期': log.score_date,
-    '姓名': log.staff_cache?.name,
-    '工号': log.staff_cache?.xft_user_id,
-    '门店/部门': log.store_name,
-    '考核项': log.scoring_items?.sub_category,
+    '姓名': log.staff_name,
+    '工号': log.staff_v_id,
+    '门店': log.store_name,
+    '考核项': log.sub_category,
     '实际扣分': log.final_score
   }))
-
   const worksheet = XLSX.utils.json_to_sheet(exportData)
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, "Records")
   XLSX.writeFile(workbook, `考核报表_${startDate.value}.xlsx`)
 }
 
-// --- 编辑与删除逻辑 ---
+// --- 操作逻辑 ---
 const openEdit = (log) => {
-  editingLog.value = JSON.parse(JSON.stringify(log))
+  editingLog.value = { ...log }
   isModalOpen.value = true
 }
 
@@ -240,21 +232,21 @@ const handleUpdate = async () => {
     .eq('id', editingLog.value.id)
 
   if (!error) {
-    alert('✅ 修改成功')
+    alert('修改成功')
     isModalOpen.value = false
     loadLogs()
   }
 }
 
 const handleDelete = async () => {
-  if (!confirm('确定删除此记录？')) return
+  if (!confirm('确定删除？')) return
   const { error } = await supabase
     .from('perf_records')
     .delete()
     .eq('id', editingLog.value.id)
 
   if (!error) {
-    alert('🗑️ 已删除')
+    alert('已删除')
     isModalOpen.value = false
     loadLogs()
   }
