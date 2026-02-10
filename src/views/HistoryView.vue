@@ -183,7 +183,7 @@ const isLastMonth = computed(() => {
 // 加载历史数据
 const loadLogs = async () => {
   const { data, error } = await supabase
-    .from('performance_logs')
+    .from('perf_records')
     .select(`
       id,
       final_score,
@@ -273,4 +273,5 @@ const handleDelete = async () => {
 
 onMounted(loadLogs)
 </script>
+
 
