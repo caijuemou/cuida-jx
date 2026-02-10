@@ -144,16 +144,23 @@ const filterQuery = ref('')
 const isModalOpen = ref(false)
 const editingLog = ref(null)
 
-// --- 日期初始化逻辑 ---
 const now = new Date()
 const y = now.getFullYear()
 const m = now.getMonth()
 
-const getFirstDay = (year, month) => new Date(year, month, 1).toISOString().split('T')[0]
-const getLastDay = (year, month) => new Date(year, month + 1, 0).toISOString().split('T')[0]
+// --- 日期初始化 ---
+const formatDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
-const startDate = ref(getFirstDay(y, m)) // 默认当月1号
-const endDate = ref(getLastDay(y, m))     // 默认当月最后一天
+const getFirstDay = (year, month) => formatDate(new Date(year, month, 1));
+const getLastDay = (year, month) => formatDate(new Date(year, month + 1, 0));
+
+const startDate = ref(getFirstDay(y, m)); 
+const endDate = ref(getLastDay(y, m));
 
 // 快速切换方法
 const setToThisMonth = () => {
@@ -266,3 +273,4 @@ const handleDelete = async () => {
 
 onMounted(loadLogs)
 </script>
+
