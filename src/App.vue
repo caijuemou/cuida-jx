@@ -6,9 +6,6 @@
           <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100">
             <span class="text-white font-black text-xs">C</span>
           </div>
-          // <div class="text-lg font-black tracking-tighter uppercase">
-            // CUIDA <span class="text-indigo-600">Performance</span>
-          // </div>
         </div>
 
         <div class="hidden md:flex items-center gap-8">
