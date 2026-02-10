@@ -3,8 +3,12 @@
     <nav v-if="!route.meta.hideNav && userInfo.name" class="bg-white border-b border-gray-100 sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-100">
-            <span class="text-white font-black text-xs">C</span>
+          <div class="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg shadow-lg shadow-indigo-500/20">
+            <img 
+              src="/logo.jpg" 
+              alt="Logo" 
+              class="w-full h-full object-cover"
+            />
           </div>
           <div class="text-lg font-black tracking-tighter uppercase">
             CUIDA <span class="text-indigo-600">Performance</span>
