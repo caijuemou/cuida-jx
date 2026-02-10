@@ -15,7 +15,8 @@ if (cmbTrackLib && typeof cmbTrackLib.init === 'function') {
       uploadID: '0692caa6-c700-403f-8667-96cd41adfca5',
       autoTrack: true,
       logTrack: true,
-      apiInvoke: true
+      apiInvoke: true,
+      defaultErrorCode: '9999'
     });
 
     const urlParams = new URLSearchParams(window.location.search);
