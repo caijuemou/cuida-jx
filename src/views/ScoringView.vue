@@ -349,26 +349,31 @@ const submitScore = async () => {
     const me = JSON.parse(localStorage.getItem('user_info') || '{}')
     if (!me.xft_user_id) throw new Error("登录信息失效，请重新登录")
 
-    // --- 1. 核心抄送判定逻辑 ---
+    /**
+     * 【核心抄送逻辑判定】
+     * 1. 获取当前门店下的所有人员。
+     * 2. 只有当被考核人【不是】店长时，才需要寻找店长进行抄送。
+     * 3. 只有当考核人来自【管理组/总部】时，才触发抄送。
+     */
     let carbonCopyVId = null
-    
-    // 判断考核人是否来自管理组
     const isFromManagement = me.dept_name?.includes('管理组') || me.dept_name?.includes('总部')
 
-    // 如果考核人是管理组，且被考核人【不是】店长
     if (isFromManagement && !isManagerMode.value) {
-      // 在当前选中的门店中，寻找店长
+      // 从 staffTree 缓存中获取当前所选门店的所有员工
       const staffInDept = staffTree.value[currentRegion.value]?.[currentDistrict.value]?.[form.value.store_name] || []
-      const manager = staffInDept.find(s => s.job_title?.includes('店长') || s.job_title?.includes('店经理'))
       
-      // 只要找到了店长，且店长不是考核人本人，就设置抄送
-      if (manager && manager.xft_user_id !== me.xft_user_id) {
+      // 查找该门店职称为“店长”或“店经理”的人
+      const manager = staffInDept.find(s => 
+        s.job_title?.includes('店长') || s.job_title?.includes('店经理')
+      )
+      
+      // 如果找到了店长，且店长不是被考核人本人，也不是当前操作人
+      if (manager && manager.xft_user_id !== form.value.staff_id) {
         carbonCopyVId = manager.xft_user_id
       }
     }
-    // 注意：如果 isManagerMode.value 为 true (即被考核人是店长)，carbonCopyVId 保持 null
 
-    // --- 2. 数据库保存 ---
+    // --- 1. 保存到 Supabase 数据库 (perf_records) ---
     const record = {
       starter_id: me.xft_user_id,
       starter_name: me.name,
@@ -381,33 +386,36 @@ const submitScore = async () => {
       record_date: form.value.date
     }
 
-    const { error: dbError } = await supabase.from('perf_records').insert(record)
-    if (dbError) throw new Error("数据库保存失败")
+    const { error: dbError } = await supabase
+      .from('perf_records')
+      .insert(record)
 
-    // --- 3. 调用推送函数 ---
+    if (dbError) throw new Error("数据库记录保存失败: " + dbError.message)
+
+    // --- 2. 联动 Edge Function 推送招行工作通知 ---
     const { error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
       body: { 
         target_user_id: form.value.staff_id, 
         target_name: form.value.staff_name,
         item_name: form.value.item_name,
         score: form.value.score,
-        // 传递抄送 ID，后端逻辑如果收到 null 就不发第二条
-        manager_v_id: carbonCopyVId 
+        manager_v_id: carbonCopyVId // 这里的键名与后端解构的保持一致
       } 
     })
 
+    // --- 3. 成功后的交互 ---
     if (invokeError) {
-      alert("✅ 考核已记录，但招行通知推送失败。")
+      console.error("推送详情:", invokeError)
+      alert("✅ 考核已记录，但招行通知推送失败，请稍后核对。")
     } else {
-      let successMsg = "🚀 提交成功！"
+      let successMsg = `🚀 提交成功！已通知【${form.value.staff_name}】。`
       if (carbonCopyVId) {
-        successMsg += " 消息已同步抄送店长。"
-      } else {
-        successMsg += " 已通知被考核人。"
+        successMsg += " 同时已抄送知会店经理。"
       }
       alert(successMsg)
     }
 
+    // 重置表单，准备下一次录入
     clearStaff() 
     
   } catch (err) {
