@@ -7,6 +7,7 @@
           <div class="flex items-center gap-2 mt-1">
             <p class="text-gray-400 text-[10px] font-medium italic uppercase">Performance Audit Trail</p>
             <span class="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] rounded-lg font-bold">符合条件: {{ filteredLogs.length }} 条</span>
+            <span v-if="roleLabel" class="px-2 py-0.5 bg-amber-50 text-amber-600 text-[10px] rounded-lg font-bold border border-amber-100">{{ roleLabel }}</span>
           </div>
         </div>
         
@@ -32,7 +33,7 @@
       </div>
 
       <div class="relative w-full">
-        <input v-model="filterQuery" type="text" placeholder="搜索姓名、工号、门店或考核内容..." 
+        <input v-model="filterQuery" type="text" :placeholder="searchPlaceholder" 
                class="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl text-sm font-bold transition-all focus:ring-0" />
         <SearchIcon class="absolute left-4 top-4 text-gray-300" :size="20" />
       </div>
@@ -100,12 +101,12 @@
           </div>
           <div class="text-2xl font-black text-rose-500">{{ log.final_score }}分</div>
         </div>
-        <div class="text-sm font-bold text-gray-600 mb-4">{{ log.sub_category }}</div>
-        <div class="flex justify-between items-center border-t border-gray-50 pt-3">
-          <span class="text-[10px] font-bold text-gray-400 uppercase italic">By: {{ log.starter_name }}</span>
+        <div class="text-sm font-bold text-gray-600 mb-2">{{ log.sub_category }}</div>
+        <div class="text-[10px] text-gray-400 font-medium mb-3 tracking-wider">日期: {{ log.score_date }} · 发起: {{ log.starter_name }}</div>
+        <div class="flex justify-end items-center border-t border-gray-50 pt-3">
           <button v-if="log.starter_id === myVNumber" 
                   @click="openEdit(log)" 
-                  class="px-4 py-2 bg-slate-900 text-white text-xs font-black rounded-xl">编辑</button>
+                  class="px-6 py-2 bg-slate-900 text-white text-xs font-black rounded-xl">编辑</button>
         </div>
       </div>
     </div>
@@ -118,17 +119,18 @@
         </div>
         <div class="space-y-6">
           <div class="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-            <div class="text-xs text-indigo-400 font-black mb-1 italic">考核详情</div>
+            <div class="text-xs text-indigo-400 font-black mb-1 italic">考核项</div>
             <div class="font-black text-indigo-900">{{ editingLog.sub_category }}</div>
+            <div class="text-xs text-indigo-300 mt-2 font-bold">针对人员: {{ editingLog.staff_name }}</div>
           </div>
           <div>
             <label class="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">分值修正</label>
             <input v-model="editingLog.final_score" type="number" 
-                   class="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl font-black text-2xl text-rose-500" />
+                   class="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 rounded-2xl font-black text-2xl text-rose-500 text-center" />
           </div>
           <div class="grid grid-cols-2 gap-3 pt-2">
-            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm">删除记录</button>
-            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100">保存修改</button>
+            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm hover:bg-rose-100 transition-colors">删除记录</button>
+            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors">保存修改</button>
           </div>
         </div>
       </div>
@@ -140,8 +142,8 @@
 import { ref, onMounted, computed } from 'vue'
 import { supabase } from '../composables/useSupabase'
 import { 
-  SearchIcon, Edit3Icon, XIcon, ClipboardXIcon, 
-  DownloadIcon, CheckCircleIcon, AlertCircleIcon, RotateCwIcon 
+  SearchIcon, Edit3Icon, XIcon, DownloadIcon, 
+  CheckCircleIcon, AlertCircleIcon, RotateCwIcon 
 } from 'lucide-vue-next'
 import * as XLSX from 'xlsx'
 
@@ -155,6 +157,21 @@ const staffTree = ref({})
 // 获取当前登录用户信息
 const me = JSON.parse(localStorage.getItem('user_info') || '{}')
 const myVNumber = me.xft_user_id
+const myDept = me.dept_name
+const myJob = me.job_title || ''
+
+// --- 权限辅助计算 ---
+const roleLabel = computed(() => {
+  if (myDept.includes('管理组') || myDept.includes('后勤')) return '管理组视图 (全) '
+  if (myJob.includes('店长') || myJob.includes('店经理')) return `门店视图 (${myDept})`
+  return '个人视图'
+})
+
+const searchPlaceholder = computed(() => {
+  if (myDept.includes('管理组')) return "搜索姓名、门店、或考核内容..."
+  if (myJob.includes('店长')) return "搜索本店员工姓名..."
+  return "在我的记录中搜索内容..."
+})
 
 // --- 日期处理 ---
 const formatDate = (date) => {
@@ -180,9 +197,9 @@ const setToLastMonth = () => {
 const isThisMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth(), 1)))
 const isLastMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
 
-// --- 加载数据 (增加了 starter_id, starter_name) ---
+// --- 核心加载逻辑 (带数据隔离) ---
 const loadLogs = async () => {
-  const { data, error } = await supabase
+  let query = supabase
     .from('perf_records')
     .select(`
       id,
@@ -197,12 +214,28 @@ const loadLogs = async () => {
       starter_id,
       starter_name
     `)
-    .order('record_date', { ascending: false })
+
+  // 1. 权限隔离过滤
+  const isManager = myJob.includes('店长') || myJob.includes('店经理')
+  const isOffice = myDept.includes('管理组') || myDept.includes('后勤') || myDept.includes('人力')
+
+  if (isOffice) {
+    // 总部看全部，不加过滤
+  } else if (isManager) {
+    // 店长只能看自己店的员工被扣分记录
+    query = query.eq('target_dept_name', myDept)
+  } else {
+    // 普通员工只能看自己被扣分的记录
+    query = query.eq('target_user_id', myVNumber)
+  }
+
+  const { data, error } = await query.order('record_date', { ascending: false })
   
   if (error) console.error("加载失败:", error.message)
   else logs.value = data || []
 }
 
+// 加载用于补发消息的人员树
 const loadStaffData = async () => {
   const { data } = await supabase.from('staff_cache').select('*').eq('is_active', true)
   const tree = {}
@@ -213,7 +246,7 @@ const loadStaffData = async () => {
   staffTree.value = tree
 }
 
-// --- 补发逻辑 ---
+// --- 补发通知 ---
 const retryPush = async (log) => {
   if (retryingId.value) return
   retryingId.value = log.id
@@ -235,20 +268,20 @@ const retryPush = async (log) => {
         manager_v_id: ccVId 
       } 
     })
-    if (invokeError) throw new Error("推送接口异常")
+    if (invokeError) throw new Error("推送失败")
 
     await supabase.from('perf_records').update({ sync_status: 'sent' }).eq('id', log.id)
     const item = logs.value.find(l => l.id === log.id)
     if (item) item.sync_status = 'sent'
     alert('🚀 补发成功')
   } catch (err) {
-    alert('❌ 补发失败')
+    alert('❌ 补发失败: ' + err.message)
   } finally {
     retryingId.value = null
   }
 }
 
-// --- 过滤逻辑 ---
+// --- 搜索过滤 ---
 const filteredLogs = computed(() => {
   return logs.value.filter(l => {
     const inDate = l.score_date >= startDate.value && l.score_date <= endDate.value
@@ -261,26 +294,24 @@ const filteredLogs = computed(() => {
   })
 })
 
-// --- 操作逻辑 ---
+// --- 修改/删除逻辑 ---
 const openEdit = (log) => {
   editingLog.value = { ...log }
   isModalOpen.value = true
 }
 
 const handleUpdate = async () => {
-  // 安全校验
   if (editingLog.value.starter_id !== myVNumber) {
     alert('无权修改非本人发起的记录')
     return
   }
-
   const { error } = await supabase
     .from('perf_records')
     .update({ score_value: String(editingLog.value.final_score) })
     .eq('id', editingLog.value.id)
 
   if (!error) {
-    alert('保存成功')
+    alert('✅ 修改已保存')
     isModalOpen.value = false
     loadLogs()
   }
@@ -291,7 +322,7 @@ const handleDelete = async () => {
     alert('无权删除非本人发起的记录')
     return
   }
-  if (!confirm('确定删除？')) return
+  if (!confirm('确定要永久删除这条考核记录吗？')) return
   const { error } = await supabase.from('perf_records').delete().eq('id', editingLog.value.id)
   if (!error) {
     isModalOpen.value = false
@@ -302,12 +333,13 @@ const handleDelete = async () => {
 const exportToExcel = () => {
   const exportData = filteredLogs.value.map(log => ({
     '日期': log.score_date, '姓名': log.staff_name, '门店': log.store_name,
-    '考核详情': log.sub_category, '分值': log.final_score, '发起人': log.starter_name
+    '考核详情': log.sub_category, '分值': log.final_score, '发起人': log.starter_name,
+    '通知状态': log.sync_status === 'sent' ? '已送达' : '未送达'
   }))
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, "Records")
-  XLSX.writeFile(wb, `绩效考核台账_${startDate.value}.xlsx`)
+  XLSX.utils.book_append_sheet(wb, ws, "绩效考核台账")
+  XLSX.writeFile(wb, `绩效考核台账_${startDate.value}_${endDate.value}.xlsx`)
 }
 
 onMounted(() => {
