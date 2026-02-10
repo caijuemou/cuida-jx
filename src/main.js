@@ -11,7 +11,7 @@ const cmbTrackLib = window.cmbTrackLib
 if (cmbTrackLib && typeof cmbTrackLib.init === 'function') {
   try {
     cmbTrackLib.init({
-      apiHost: 'https://xft.cmbchina.com/track', // 请确认文档地址
+      apiHost: 'https://lf12-32-gateway.paas.cmbchina.com/front-rest-log/v2/encrypt_upload', // 请确认文档地址
       uploadID: '0692caa6-c700-403f-8667-96cd41adfca5',
       autoTrack: true,
       logTrack: true,
