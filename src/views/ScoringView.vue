@@ -266,17 +266,20 @@ const currentItemOptions = computed(() => {
 const handleStaffStepClick = (val) => {
   if (staffStep.value === 1) {
     currentRegion.value = val;
-    const nextOptions = Object.keys(staffTree.value[val] || {});
     staffStep.value = 2;
   } 
   else if (staffStep.value === 2) {
     currentDistrict.value = val;
-    const nextOptions = Object.keys(staffTree.value[currentRegion.value][val] || {});
-    ons[0] === val) {
+    // 获取下一级（门店级）的所有选项
+    const nextOptions = Object.keys(staffTree.value[currentRegion.value]?.[val] || {});
+    
+    // 关键修复：判断是否为重复层级
+    // 如果下一级只有一个选项，且名字和当前点击的一模一样（总部部门特有情况）
+    if (nextOptions.length === 1 && nextOptions[0] === val) {
       currentDept.value = val;
-      staffStep.value = 4;
+      staffStep.value = 4; // 跳过重复级，直接进入选人
     } else {
-      staffStep.value = 3;
+      staffStep.value = 3; // 正常进入第三级（门店级）
     }
   } 
   else if (staffStep.value === 3) {
@@ -286,6 +289,11 @@ const handleStaffStepClick = (val) => {
   else {
     selectStaff(val);
   }
+}
+
+const handleItemStepClick = (val) => {
+  if (itemStep.value === 1) { currentCategory.value = val; itemStep.value = 2 }
+  else { selectItem(val) }
 }
 
 const selectStaff = (s) => {
@@ -392,7 +400,32 @@ const goBack = () => {
 }
 const clearStaff = () => { form.value.staff_id = ''; form.value.staff_name = ''; isManagerMode.value = false; clearItem() }
 const clearItem = () => { form.value.item_id = ''; form.value.item_name = ''; form.value.score = 0 }
-const openStaffPicker = () => { pickerMode.value = 'staff'; staffStep.value = 1 }
+const openStaffPicker = () => {
+  pickerMode.value = 'staff';
+  
+  const regions = Object.keys(staffTree.value);
+  // 如果是受限店长，regions 只有 ["本门店"]
+  if (regions.length === 1) {
+    currentRegion.value = regions[0];
+    const districts = Object.keys(staffTree.value[regions[0]]);
+    
+    if (districts.length === 1) {
+      currentDistrict.value = districts[0];
+      const stores = Object.keys(staffTree.value[regions[0]][districts[0]]);
+      
+      if (stores.length === 1) {
+        currentDept.value = stores[0];
+        staffStep.value = 4; // 直接进入选人列表
+        return;
+      }
+      staffStep.value = 3;
+      return;
+    }
+    staffStep.value = 2;
+    return;
+  }
+  staffStep.value = 1;
+}
 const openItemPicker = () => { pickerMode.value = 'item'; itemStep.value = 1 }
 const closePicker = () => { pickerMode.value = null }
 const isReady = computed(() => form.value.staff_id && form.value.item_id)
