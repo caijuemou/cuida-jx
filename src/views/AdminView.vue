@@ -81,18 +81,42 @@ const syncStaff = async () => {
 const syncDepts = async () => {
   try {
     const parsed = JSON.parse(deptJson.value)
-    const records = parsed.body.records || parsed.body.deptList
-    const depts = records.map(r => ({
-      code: r.code || r.ORGSEQ,
-      name: r.name || r.ORGNAM,
-      name_path: r.namePath,
-      parent_name: r.parentName
-    }))
+    const records = parsed.body?.records || []
+    
+    if (records.length === 0) throw new Error('JSON 格式不匹配或 records 为空')
 
-    const { error } = await supabase.from('dept_cache').upsert(depts, { onConflict: 'code' })
+    const depts = records.map(r => {
+      // 1. 统一 ID：第一段叫 id，第二段叫 orgId
+      const finalCode = r.id || r.orgId;
+      
+      // 2. 计算层级 (仅针对第一段数据)
+      const pathParts = r.namePath ? r.namePath.split('/') : []
+      
+      return {
+        code: finalCode,
+        // 如果是第一段数据，会有这些详细字段
+        name: r.name || null, 
+        name_path: r.namePath || null,
+        parent_code: r.parentId || null,
+        level: pathParts.length > 0 ? pathParts.length : null,
+        // 如果是第二段数据，会有映射字段
+        external_id: r.outId || null,
+        source: r.source || null
+      }
+    })
+
+    // 过滤掉没有 code 的无效记录
+    const validDepts = depts.filter(d => d.code)
+
+    const { error } = await supabase
+      .from('dept_cache')
+      .upsert(validDepts, { onConflict: 'code' })
+
     if (error) throw error
-    alert(`成功同步 ${depts.length} 个部门节点`)
+    alert(`成功处理 ${validDepts.length} 条架构数据。请确保两段 JSON 都已分别粘贴同步过。`)
     deptJson.value = ''
-  } catch (err) { alert('架构同步失败: ' + err.message) }
+  } catch (err) {
+    alert('同步失败: ' + err.message)
+  }
 }
 </script>
