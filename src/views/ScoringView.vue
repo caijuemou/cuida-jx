@@ -347,45 +347,49 @@ const submitScore = async () => {
 
   try {
     const me = JSON.parse(localStorage.getItem('user_info') || '{}')
-    if (!me.xft_user_id) throw new Error("未登录")
+    if (!me.xft_user_id) throw new Error("登录信息失效，请重新登录")
 
-    // 查找被考核人详细岗位
-    const allStaffList = Object.values(staffTree.value).flatMap(d => Object.values(d)).flatMap(s => Object.values(s)).flat()
-    const targetStaff = allStaffList.find(s => s.xft_user_id === form.value.staff_id)
-
+    // 1. 保存到本地数据库 (perf_records)
     const record = {
       starter_id: me.xft_user_id,
       starter_name: me.name,
       target_user_id: form.value.staff_id,
       target_name: form.value.staff_name,
       target_dept_name: form.value.store_name,
-      target_job_title: targetStaff?.job_title || '员工',
       category_label: form.value.category_name,
       score_value: String(form.value.score),
       description: `考核项: ${form.value.item_name}`,
       record_date: form.value.date
     }
 
-    const { data: dbData, error: dbError } = await supabase.from('perf_records').insert(record).select().single()
-    if (dbError) throw dbError
+    const { data: dbData, error: dbError } = await supabase
+      .from('perf_records')
+      .insert(record)
+      .select()
+      .single()
 
-    // 联动薪福通 Edge Function
-    const { data: xftData, error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
+    if (dbError) throw new Error("数据库保存失败: " + dbError.message)
+
+    // 2. 联动 Edge Function 推送招行工作通知
+    const { data: msgResult, error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
       body: { 
         target_user_id: form.value.staff_id, 
         target_name: form.value.staff_name,
         item_name: form.value.item_name,
         score: form.value.score
-	  }
+      } 
     })
 
-    if (invokeError) throw invokeError
+    if (invokeError) {
+      // 如果消息推送失败，但数据库已存，我们提示用户记录已成功，只是通知没发出去
+      console.error("推送详情:", invokeError)
+      alert("✅ 考核已记录，但招行通知推送失败，请稍后在后台核对。")
+    } else {
+      alert("🚀 提交成功！员工将收到招行工作通知。")
+    }
 
-    if (msgError) console.warn("消息推送异常，但记录已保存:", msgError)
-
-    alert("✅ 记录已提交并推送通知")
-      clearStaff()
-	  
+    clearStaff() // 成功后重置表单
+    
   } catch (err) {
     alert('❌ 操作失败: ' + err.message)
   } finally {
