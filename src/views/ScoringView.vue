@@ -349,7 +349,26 @@ const submitScore = async () => {
     const me = JSON.parse(localStorage.getItem('user_info') || '{}')
     if (!me.xft_user_id) throw new Error("登录信息失效，请重新登录")
 
-    // 1. 保存到本地数据库 (perf_records)
+    // --- 1. 核心抄送判定逻辑 ---
+    let carbonCopyVId = null
+    
+    // 判断考核人是否来自管理组
+    const isFromManagement = me.dept_name?.includes('管理组') || me.dept_name?.includes('总部')
+
+    // 如果考核人是管理组，且被考核人【不是】店长
+    if (isFromManagement && !isManagerMode.value) {
+      // 在当前选中的门店中，寻找店长
+      const staffInDept = staffTree.value[currentRegion.value]?.[currentDistrict.value]?.[form.value.store_name] || []
+      const manager = staffInDept.find(s => s.job_title?.includes('店长') || s.job_title?.includes('店经理'))
+      
+      // 只要找到了店长，且店长不是考核人本人，就设置抄送
+      if (manager && manager.xft_user_id !== me.xft_user_id) {
+        carbonCopyVId = manager.xft_user_id
+      }
+    }
+    // 注意：如果 isManagerMode.value 为 true (即被考核人是店长)，carbonCopyVId 保持 null
+
+    // --- 2. 数据库保存 ---
     const record = {
       starter_id: me.xft_user_id,
       starter_name: me.name,
@@ -362,33 +381,34 @@ const submitScore = async () => {
       record_date: form.value.date
     }
 
-    const { data: dbData, error: dbError } = await supabase
-      .from('perf_records')
-      .insert(record)
-      .select()
-      .single()
+    const { error: dbError } = await supabase.from('perf_records').insert(record)
+    if (dbError) throw new Error("数据库保存失败")
 
-    if (dbError) throw new Error("数据库保存失败: " + dbError.message)
-
-    // 2. 联动 Edge Function 推送招行工作通知
-    const { data: msgResult, error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
+    // --- 3. 调用推送函数 ---
+    const { error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
       body: { 
         target_user_id: form.value.staff_id, 
         target_name: form.value.staff_name,
         item_name: form.value.item_name,
-        score: form.value.score
+        score: form.value.score,
+        // 传递抄送 ID，后端逻辑如果收到 null 就不发第二条
+        manager_v_id: carbonCopyVId 
       } 
     })
 
     if (invokeError) {
-      // 如果消息推送失败，但数据库已存，我们提示用户记录已成功，只是通知没发出去
-      console.error("推送详情:", invokeError)
-      alert("✅ 考核已记录，但招行通知推送失败，请稍后在后台核对。")
+      alert("✅ 考核已记录，但招行通知推送失败。")
     } else {
-      alert("🚀 提交成功！员工将收到招行工作通知。")
+      let successMsg = "🚀 提交成功！"
+      if (carbonCopyVId) {
+        successMsg += " 消息已同步抄送店长。"
+      } else {
+        successMsg += " 已通知被考核人。"
+      }
+      alert(successMsg)
     }
 
-    clearStaff() // 成功后重置表单
+    clearStaff() 
     
   } catch (err) {
     alert('❌ 操作失败: ' + err.message)
