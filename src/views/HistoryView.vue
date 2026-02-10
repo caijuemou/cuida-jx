@@ -32,7 +32,7 @@
       </div>
 
       <div class="relative w-full">
-        <input v-model="filterQuery" type="text" placeholder="快速定位姓名、门店、V号或考核项关键词..." 
+        <input v-model="filterQuery" type="text" placeholder="快速定位姓名、门店、V号或关键词..." 
                class="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-100 focus:bg-white rounded-2xl text-sm font-bold transition-all focus:ring-0" />
         <SearchIcon class="absolute left-4 top-4 text-gray-300" :size="20" />
       </div>
@@ -84,7 +84,7 @@
             <div class="text-lg font-black text-gray-900">{{ log.staff_cache?.name }}</div>
           </div>
           <div class="text-right">
-            <div class="text-2xl font-black text-rose-500">-{{ log.final_score }}</div>
+            <div class="text-2xl font-black text-rose-500">{{ log.final_score }}</div>
             <div class="text-[10px] text-gray-400 font-bold">标准: {{ log.scoring_items?.score_impact }}</div>
           </div>
         </div>
@@ -104,25 +104,22 @@
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+      <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-xl font-black text-gray-900">修改扣分记录</h3>
           <button @click="isModalOpen = false" class="p-2 bg-gray-100 rounded-full text-gray-400"><XIcon :size="20"/></button>
         </div>
-        
         <div class="space-y-6">
           <div class="p-4 bg-indigo-50 rounded-2xl">
             <div class="text-xs text-indigo-400 font-bold uppercase mb-1">正在编辑</div>
             <div class="font-black text-indigo-900">{{ editingLog.staff_cache?.name }} · {{ editingLog.store_name }}</div>
             <div class="text-sm text-indigo-700/70 font-bold mt-1">{{ editingLog.scoring_items?.sub_category }}</div>
           </div>
-
           <div>
-            <label class="block text-xs font-black text-gray-400 uppercase mb-2">修正实际扣分 (标准: {{ editingLog.scoring_items?.score_impact }})</label>
+            <label class="block text-xs font-black text-gray-400 uppercase mb-2">修正实际扣分</label>
             <input v-model.number="editingLog.final_score" type="number" 
                    class="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-indigo-500 focus:ring-0 rounded-2xl font-black text-2xl text-rose-500" />
           </div>
-
           <div class="grid grid-cols-2 gap-3">
             <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm hover:bg-rose-100 transition-colors">删除本条</button>
             <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">保存修改</button>
@@ -144,69 +141,63 @@ const filterQuery = ref('')
 const isModalOpen = ref(false)
 const editingLog = ref(null)
 
+// --- 日期初始化逻辑 ---
 const now = new Date()
 const y = now.getFullYear()
 const m = now.getMonth()
 
-// --- 日期初始化 ---
 const formatDate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
-const getFirstDay = (year, month) => formatDate(new Date(year, month, 1));
-const getLastDay = (year, month) => formatDate(new Date(year, month + 1, 0));
+const startDate = ref(formatDate(new Date(y, m, 1)))
+const endDate = ref(formatDate(new Date(y, m + 1, 0)))
 
-const startDate = ref(getFirstDay(y, m)); 
-const endDate = ref(getLastDay(y, m));
-
-// 快速切换方法
 const setToThisMonth = () => {
-  startDate.value = getFirstDay(y, m)
-  endDate.value = getLastDay(y, m)
+  startDate.value = formatDate(new Date(y, m, 1))
+  endDate.value = formatDate(new Date(y, m + 1, 0))
 }
 const setToLastMonth = () => {
-  const lastM = new Date(y, m - 1, 1)
-  startDate.value = getFirstDay(lastM.getFullYear(), lastM.getMonth())
-  endDate.value = getLastDay(lastM.getFullYear(), lastM.getMonth())
+  const prevMonth = new Date(y, m - 1, 1)
+  startDate.value = formatDate(prevMonth)
+  endDate.value = formatDate(new Date(y, m, 0))
 }
 
-// 按钮状态高亮判定
-const isThisMonth = computed(() => startDate.value === getFirstDay(y, m))
-const isLastMonth = computed(() => {
-  const lastM = new Date(y, m - 1, 1)
-  return startDate.value === getFirstDay(lastM.getFullYear(), lastM.getMonth())
-})
+const isThisMonth = computed(() => startDate.value === formatDate(new Date(y, m, 1)))
+const isLastMonth = computed(() => startDate.value === formatDate(new Date(y, m - 1, 1)))
 
-// 加载历史数据
+// --- 数据加载 (修正了别名映射) ---
 const loadLogs = async () => {
   const { data, error } = await supabase
     .from('perf_records')
     .select(`
       id,
-      final_score,
-      score_date,
-      store_name,
-      staff_cache ( name, xft_user_id ),
-      scoring_items ( category, sub_category, score_impact )
+      final_score:score_value,   
+      score_date:record_date,    
+      store_name:target_dept_name,
+      staff_cache:target_user_id ( name, xft_user_id ),
+      scoring_items:category_label ( category:category_name, sub_category:item_name, score_impact )
     `)
-    .order('score_date', { ascending: false })
+    .order('record_date', { ascending: false })
   
-  if (!error) logs.value = data
+  if (error) {
+    console.error("加载台账失败:", error.message)
+  } else {
+    logs.value = data || []
+  }
 }
 
-// 搜索 + 日期综合过滤
+// --- 搜索与过滤逻辑 (修正变量名) ---
 const filteredLogs = computed(() => {
   let result = logs.value
 
-  // 1. 日期过滤
   if (startDate.value && endDate.value) {
     result = result.filter(l => l.score_date >= startDate.value && l.score_date <= endDate.value)
   }
 
-  // 2. 关键词过滤
   if (filterQuery.value) {
     const q = filterQuery.value.toLowerCase()
     result = result.filter(l => 
@@ -219,26 +210,24 @@ const filteredLogs = computed(() => {
   return result
 })
 
-// 导出报表
+// --- 导出逻辑 ---
 const exportToExcel = () => {
   const exportData = filteredLogs.value.map(log => ({
     '考核日期': log.score_date,
     '姓名': log.staff_cache?.name,
-    '工号/V号': log.staff_cache?.xft_user_id,
+    '工号': log.staff_cache?.xft_user_id,
     '门店/部门': log.store_name,
-    '大类': log.scoring_items?.category,
-    '考核具体项': log.scoring_items?.sub_category,
-    '标准分': log.scoring_items?.score_impact,
+    '考核项': log.scoring_items?.sub_category,
     '实际扣分': log.final_score
   }))
 
   const worksheet = XLSX.utils.json_to_sheet(exportData)
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Performance")
-  XLSX.writeFile(workbook, `考核台账_${startDate.value}_${endDate.value}.xlsx`)
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Records")
+  XLSX.writeFile(workbook, `考核报表_${startDate.value}.xlsx`)
 }
 
-// 编辑/更新/删除逻辑
+// --- 编辑与删除逻辑 ---
 const openEdit = (log) => {
   editingLog.value = JSON.parse(JSON.stringify(log))
   isModalOpen.value = true
@@ -246,8 +235,8 @@ const openEdit = (log) => {
 
 const handleUpdate = async () => {
   const { error } = await supabase
-    .from('performance_logs')
-    .update({ final_score: editingLog.value.final_score })
+    .from('perf_records')
+    .update({ score_value: String(editingLog.value.final_score) })
     .eq('id', editingLog.value.id)
 
   if (!error) {
@@ -258,14 +247,14 @@ const handleUpdate = async () => {
 }
 
 const handleDelete = async () => {
-  if (!confirm('⚠️ 确定要删除吗？这将影响薪酬核算数据。')) return
+  if (!confirm('确定删除此记录？')) return
   const { error } = await supabase
-    .from('performance_logs')
+    .from('perf_records')
     .delete()
     .eq('id', editingLog.value.id)
 
   if (!error) {
-    alert('🗑️ 记录已移除')
+    alert('🗑️ 已删除')
     isModalOpen.value = false
     loadLogs()
   }
@@ -273,5 +262,3 @@ const handleDelete = async () => {
 
 onMounted(loadLogs)
 </script>
-
-
