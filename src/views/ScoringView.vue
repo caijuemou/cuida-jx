@@ -370,22 +370,22 @@ const submitScore = async () => {
     if (dbError) throw dbError
 
     // 联动薪福通 Edge Function
-    const { data: xftData, error: invokeError } = await supabase.functions.invoke('xft-start-flow', {
-      body: { record: dbData } 
+    const { data: xftData, error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
+      body: { 
+        target_user_id: form.value.staff_id, 
+        target_name: form.value.staff_name,
+        item_name: form.value.item_name,
+        score: form.value.score
+	  }
     })
 
     if (invokeError) throw invokeError
 
-    if (xftData?.returnCode === "SUC0000") {
-      await supabase.from('perf_records').update({ 
-        xft_proc_inst_id: xftData.body?.procInstId, 
-        sync_status: 'success' 
-      }).eq('id', dbData.id)
-      alert("✅ 提交成功")
+    if (msgError) console.warn("消息推送异常，但记录已保存:", msgError)
+
+    alert("✅ 记录已提交并推送通知")
       clearStaff()
-    } else {
-      throw new Error(xftData?.errorMsg || "同步失败")
-    }
+	  
   } catch (err) {
     alert('❌ 操作失败: ' + err.message)
   } finally {
