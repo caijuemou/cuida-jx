@@ -92,9 +92,8 @@ onMounted(refreshUser);
 watch(() => route.path, refreshUser);
 
 // --- 权限判定 ---
-// 总部管理组或指定人
 const isSuperAdmin = computed(() => {
-  return userInfo.value.dept_name?.includes('管理组') || userInfo.value.name === '蔡珏侔';
+  return userInfo.value.dept_name?.includes('公司管理组') || userInfo.value.name === '蔡珏侔';
 });
 
 // 店长、店经理或管理员有权评分
