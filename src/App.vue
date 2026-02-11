@@ -14,13 +14,32 @@
             CUìDA <span class="text-indigo-600">Performance</span>
           </div>
         </div>
-
+/*
         <div class="hidden md:flex items-center gap-8">
           <router-link v-if="canAccessScoring" to="/" class="nav-link" active-class="active-pc">绩效评分</router-link>
           <router-link to="/dashboard" class="nav-link" active-class="active-pc">考核大屏</router-link>
           <router-link v-if="isSuperAdmin" to="/admin" class="nav-link" active-class="active-pc">系统管理</router-link>
         </div>
-
+*/
+        <div class="hidden md:flex items-center gap-8">
+          <div 
+            v-if="canAccessScoring" 
+            @click="safeNav('/')" 
+            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/' }]"
+          >绩效评分</div>
+        
+          <div 
+            @click="safeNav('/dashboard')" 
+            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/dashboard' }]"
+          >考核大屏</div>
+        
+          <div 
+            v-if="isSuperAdmin" 
+            @click="safeNav('/admin')" 
+            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/admin' }]"
+          >系统管理</div>
+        </div>
+        
         <div class="flex items-center gap-4 border-l pl-6 border-gray-100">
           <div class="text-right hidden sm:block">
             <div class="text-xs font-black text-gray-900 leading-none">{{ userInfo.name }}</div>
@@ -76,6 +95,17 @@ import {
 
 const route = useRoute();
 const router = useRouter();
+
+const safeNav = (targetPath) => {
+  // 如果点击的就是当前页面，直接返回，避免重复跳转报错
+  if (route.path === targetPath) return;
+
+  router.push({
+    path: targetPath,
+    // 核心：原封不动带上所有的 URL 参数 (data, sign, xftAppCod 等)
+    query: route.query 
+  });
+};
 
 const userInfo = ref({});
 
