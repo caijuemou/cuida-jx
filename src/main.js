@@ -18,14 +18,14 @@ if (cmbTrackLib && typeof cmbTrackLib.init === 'function') {
       apiInvoke: true,
       defaultErrorCode: '9999'
     });
-
+/*
     const urlParams = new URLSearchParams(window.location.search);
     const data = urlParams.get('data');
     if (data) {
       const theRequestData = encodeURIComponent(data.replace(/''/g, '+'));
       cmbTrackLib.aliasID(theRequestData);
     }
-    
+*/    
     // 挂载到全局
     app.config.globalProperties.cmbTrackLib = cmbTrackLib;
   } catch (err) {
