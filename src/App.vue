@@ -14,13 +14,7 @@
             CUìDA <span class="text-indigo-600">Performance</span>
           </div>
         </div>
-/*
-        <div class="hidden md:flex items-center gap-8">
-          <router-link v-if="canAccessScoring" to="/" class="nav-link" active-class="active-pc">绩效评分</router-link>
-          <router-link to="/dashboard" class="nav-link" active-class="active-pc">考核大屏</router-link>
-          <router-link v-if="isSuperAdmin" to="/admin" class="nav-link" active-class="active-pc">系统管理</router-link>
-        </div>
-*/
+        
         <div class="hidden md:flex items-center gap-8">
           <div 
             v-if="canAccessScoring" 
