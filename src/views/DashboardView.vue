@@ -3,7 +3,7 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 bg-slate-900/50 p-6 rounded-3xl border border-slate-800 backdrop-blur-md gap-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent tracking-tighter">
-          CUIDA 绩效实时监控大屏
+          CUìDA 绩效实时监控大屏
         </h1>
         <p class="text-slate-400 text-[10px] md:text-xs mt-1 uppercase tracking-widest font-bold flex items-center gap-2">
           <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -41,7 +41,7 @@
       <div class="bg-slate-900/40 rounded-[2rem] p-6 md:p-8 border border-slate-800 flex flex-col h-[450px] md:h-[530px]">
         <h3 class="text-lg font-black flex items-center mb-6">
           <div class="w-2 h-6 bg-amber-500 rounded-full mr-3 shadow-[0_0_15px_rgba(245,158,11,0.5)]"></div>
-          考核大类分布
+          扣分大类分布
         </h3>
         <div class="flex-1 w-full" ref="pieChartRef"></div>
         <div class="mt-4 p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 text-xs text-slate-400 italic">
@@ -53,7 +53,7 @@
     <div v-else class="h-96 flex flex-col items-center justify-center bg-slate-900/20 rounded-[2rem] border border-dashed border-slate-800 text-slate-500">
       <ActivityIcon :size="48" class="mb-4 opacity-20" />
       <p class="text-lg font-bold tracking-widest uppercase">暂无考核数据</p>
-      <p class="text-xs mt-2">请确认 perf_records 表中是否有记录</p>
+      <p class="text-xs mt-2">请确认数据表中是否有记录</p>
     </div>
   </div>
 </template>
@@ -87,17 +87,17 @@ const updateTime = () => {
 // 主数据抓取函数
 const fetchDashboardData = async () => {
   try {
-    console.log('正在从 Supabase 获取数据...')
+    console.log('正在从数据库获取数据...')
     const { data, error } = await supabase
       .from('perf_records')
       .select('score_value, target_dept_name, category_label, record_date, target_user_id')
 
     if (error) {
-      console.error('Supabase 读取失败:', error.message)
+      console.error('数据库读取失败:', error.message)
       return
     }
 
-    console.log('获取到的原始记录数:', data?.length || 0)
+    console.log('获取到的记录数:', data?.length || 0)
 
     if (!data || data.length === 0) {
       hasData.value = false
