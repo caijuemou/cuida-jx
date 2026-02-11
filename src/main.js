@@ -12,7 +12,7 @@ if (cmbTrackLib && typeof cmbTrackLib.init === 'function') {
   try {
     cmbTrackLib.init({
       apiHost: 'https://lf12-32-gateway.paas.cmbchina.com/front-rest-log/v2/encrypt_upload', // 请确认文档地址
-      uploadID: '0692caa6-c700-403f-8667-96cd41adfca5',
+      uploadID: 'QkBEjQJkd9W2NexsUiMFBQGUAk3yN4/Z62rXw4HuiYhb+mlhWMtpELH+QHWawTqpPgdcL7laoPPbI9PFts7WT8wQcptg3o8bS2Z84jEEmtE=@PROD',
       autoTrack: true,
       logTrack: true,
       apiInvoke: true,
