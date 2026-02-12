@@ -173,7 +173,7 @@ const standardScore = ref(0) // 用于存储考核项的标准分值
 // --- 2. 核心数据加载与权限逻辑 ---
 const loadData = async () => {
   try {
-    const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+    const me = JSON.parse(sessionStorage.getItem('user_info') || '{}')
     const myVNumber = me.xft_user_id
 
     const [staffRes, deptRes, itemsRes] = await Promise.all([
