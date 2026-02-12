@@ -128,7 +128,7 @@ onMounted(async () => {
       }
 
       // 4. 登录成功处理
-      sessionStorage.setItem('user_info', JSON.stringify(staff));
+      localStorage.setItem('user_info', JSON.stringify(staff));
       window.history.replaceState({}, document.title, window.location.pathname);
 
       // 跳转逻辑...
@@ -145,6 +145,7 @@ onMounted(async () => {
 });
 
 </script>
+
 
 
 
