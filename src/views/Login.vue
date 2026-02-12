@@ -73,32 +73,45 @@ onMounted(async () => {
   if (data) {
     isProcessing.value = true;
     try {
-      // --- 稳健的中文解码 ---
+      // 1. 解码
       const rawData = window.atob(data.replace(/-/g, '+').replace(/_/g, '/'));
       const uint8Array = new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
       const decodedString = new TextDecoder().decode(uint8Array);
       
       console.log('身份解码成功:', decodedString);
 
-      // 解析字段
-      const name = decodedString.match(/USRNAM=([^|]+)/)?.[1];
-      const stfnbr = decodedString.match(/STFNBR=([^|]+)/)?.[1];
+      // 2. 解析字段 (严格对应日志中的 Key)
+      const name = decodedString.match(/USRNAM=([^|]+)/)?.[1]?.trim();
+      const stfnbr = decodedString.match(/STFNBR=([^|]+)/)?.[1]?.trim(); // 得到 "CD000023"
+      // const stfseq = decodedString.match(/STFSEQ=([^|]+)/)?.[1]?.trim(); // 如果需要，这样定义 stfseq
 
       if (!name || !stfnbr) throw new Error("无法读取用户信息");
 
-      // --- 匹配数据库 (修正后的逻辑) ---
+      // 3. 匹配数据库
       let staff = null;
 
-      // 首先尝试用真实的工号字段 xft_user_id 匹配
+      // 策略 A: 尝试【完全匹配】 (对应数据库里存了 "CD000023" 的情况)
       const { data: byId } = await supabase
         .from('staff_cache')
         .select('*')
-        .eq('staff_seq', stfSeq)
+        .eq('staff_number', stfnbr) // 确认你的列名是 staff_number 还是 xft_user_id
         .maybeSingle();
       
       staff = byId;
 
-      // 如果工号没匹配上，尝试用姓名匹配
+      // 策略 B: 如果没中，尝试【去除前缀和零】的模糊匹配
+      // 比如把 "CD000023" 变成 "23"，去查数据库
+      if (!staff) {
+        const shortId = stfnbr.replace(/\D/g, '').replace(/^0+/, ''); // 提取数字并去前导零，得到 "23"
+        const { data: byShortId } = await supabase
+          .from('staff_cache')
+          .select('*')
+          .ilike('staff_number', `%${shortId}`) // 匹配以 "23" 结尾的工号
+          .maybeSingle();
+        staff = byShortId;
+      }
+
+      // 策略 C: 姓名匹配
       if (!staff) {
         const { data: byName } = await supabase
           .from('staff_cache')
@@ -109,38 +122,29 @@ onMounted(async () => {
       }
 
       if (!staff) {
-        console.error('匹配失败，已解析数据:', { name, staff_seq });
-        alert(`登录成功(薪福通: ${name})，但系统名单中找不到对应的记录。\n请确认工号 [${staff_seq}] 是否在系统中存在。`);
+        alert(`未在系统名单找到：\n姓名：${name}\n工号：${stfnbr}\n\n请联系后台管理员核对工号格式！`);
         isProcessing.value = false;
         return;
       }
 
-      // --- 登录成功后的处理 ---
+      // 4. 登录成功处理
       sessionStorage.setItem('user_info', JSON.stringify(staff));
-      
-      // 清除 URL 痕迹
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // 角色跳转
+      // 跳转逻辑...
       const isSuper = staff.dept_name === '公司管理组' || staff.name === '蔡珏侔';
-      const isManager = staff.job_title?.includes('店经理');
-
-      if (isSuper) {
-        router.push('/admin');
-      } else if (isManager) {
-        router.push('/');
-      } else {
-        router.push('/dashboard');
-      }
+      if (isSuper) router.push('/admin');
+      else router.push('/');
 
     } catch (err) {
       console.error('登录校验异常:', err);
-      alert('身份校验失败，请重新登录');
+      alert('登录失败：' + err.message);
       isProcessing.value = false;
     }
   }
 });
 
 </script>
+
 
 
