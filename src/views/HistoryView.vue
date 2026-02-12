@@ -166,7 +166,7 @@ const retryingId = ref(null)
 const staffTree = ref({})
 
 // 获取用户信息
-const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+const me = JSON.parse(sessionStorage.getItem('user_info') || '{}')
 const myVNumber = me.xft_user_id
 const myDept = me.dept_name
 const myJob = me.job_title || ''
@@ -354,3 +354,4 @@ onMounted(() => {
   loadStaffData()
 })
 </script>
+
