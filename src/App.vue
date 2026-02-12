@@ -105,7 +105,7 @@ const userInfo = ref({});
 
 const refreshUser = () => {
   try {
-    const data = localStorage.getItem('user_info');
+    const data = sessionStorage.getItem('user_info');
     userInfo.value = data ? JSON.parse(data) : {};
   } catch {
     userInfo.value = {};
