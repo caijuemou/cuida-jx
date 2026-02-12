@@ -255,23 +255,48 @@ const triggerUpload = (role) => { currentUploadRole.value = role; fileInput.valu
 const handleExcelUpload = (event) => {
   const file = event.target.files[0]
   if (!file) return
+  
   isUploading.value = true
   const reader = new FileReader()
+  
   reader.onload = async (e) => {
     try {
       const data = new Uint8Array(e.target.result)
       const workbook = XLSX.read(data, { type: 'array' })
       const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]])
+      
+      // 1. 数据转换
       const formatted = jsonData.map(row => ({
-        category: row['考核大类'] || '未分类',
-        sub_category: row['考核项'] || '未命名',
+        category: row['考核大类']?.toString().trim() || '未分类',
+        sub_category: row['考核项']?.toString().trim() || '未命名',
         score_impact: Number(row['分值']) || 0,
-        applicable_to: currentUploadRole.value,
-        is_active: true
+        applicable_to: currentUploadRole.value, // staff 或 manager
+        is_active: true,
+        // 这里不需要传 id，数据库会根据下面的 onConflict 自动匹配
       }))
-      await supabase.from('scoring_items').upsert(formatted)
-      loadData()
-    } catch (err) { alert('导入失败') } finally { isUploading.value = false }
+
+      if (formatted.length === 0) throw new Error('Excel 内容为空')
+
+      // 2. 执行 Upsert (增量同步)
+      const { error } = await supabase
+        .from('scoring_items')
+        .upsert(formatted, { 
+          // 这里的字段必须和第一步 SQL 创建的约束完全对应
+          onConflict: 'category, sub_category, applicable_to' 
+        })
+
+      if (error) throw error
+      
+      alert(`成功同步 ${formatted.length} 条考核标准（已自动去重/更新）`)
+      await loadData() // 刷新列表展示
+      
+    } catch (err) {
+      console.error('导入失败详情:', err)
+      alert('导入失败: ' + (err.message || '请检查 Excel 格式'))
+    } finally {
+      isUploading.value = false
+      if (fileInput.value) fileInput.value.value = '' // 清空 input 方便下次上传
+    }
   }
   reader.readAsArrayBuffer(file)
 }
@@ -284,4 +309,5 @@ const handleDelete = async (id) => {
 }
 
 onMounted(loadData)
+
 </script>
