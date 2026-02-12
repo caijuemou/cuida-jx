@@ -116,7 +116,7 @@ onMounted(async () => {
       }
 
       // --- 登录成功后的处理 ---
-      localStorage.setItem('user_info', JSON.stringify(staff));
+      sessionStorage.setItem('user_info', JSON.stringify(staff));
       
       // 清除 URL 痕迹
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -140,4 +140,5 @@ onMounted(async () => {
     }
   }
 });
+
 </script>
