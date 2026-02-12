@@ -62,7 +62,7 @@
             <td class="p-5 text-sm font-bold text-indigo-600">{{ log.store_name }}</td>
             <td class="p-5">
               <div class="text-sm font-bold text-gray-800 leading-tight">{{ log.sub_category }}</div>
-              <div class="text-[10px] text-gray-400 font-bold mt-1">标准分值: {{ log.standard_score || log.final_score }} 分</div>
+              <div class="text-[10px] text-gray-400 font-bold mt-1">标准分值: {{ log.standard_score || '--' }} 分</div>
             </td>
             <td class="p-5 text-center font-black text-rose-500 text-lg">
               扣 {{ log.final_score }}
@@ -105,19 +105,19 @@
           <div class="text-2xl font-black text-rose-500">扣{{ log.final_score }}分</div>
         </div>
         <div class="text-sm font-bold text-gray-600 mb-1">{{ log.sub_category }}</div>
-        <div class="text-[10px] text-gray-400 font-bold mb-2 italic">标准分值: {{ log.standard_score || log.final_score }}分</div>
+        <div class="text-[10px] text-gray-400 font-bold mb-2 italic">标准分值: {{ log.standard_score || '--' }}分</div>
         
         <div class="text-[10px] text-gray-400 font-medium mb-3 tracking-wider">日期: {{ log.score_date }} · 发起: {{ log.starter_name }}</div>
         <div class="flex justify-end items-center border-t border-gray-50 pt-3">
           <button v-if="log.starter_id === myVNumber" 
                   @click="openEdit(log)" 
-                  class="px-6 py-2 bg-slate-900 text-white text-xs font-black rounded-xl shadow-lg active:scale-95 transition-all">编辑记录</button>
+                  class="px-6 py-2 bg-slate-900 text-white text-xs font-black rounded-xl">编辑</button>
         </div>
       </div>
     </div>
 
     <div v-if="isModalOpen" class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300">
+      <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-xl font-black text-gray-900">修改考核记录</h3>
           <button @click="isModalOpen = false" class="p-2 bg-gray-100 rounded-full text-gray-400"><XIcon :size="20"/></button>
@@ -127,12 +127,12 @@
             <div class="text-xs text-indigo-400 font-black mb-1 italic">考核内容</div>
             <div class="font-black text-indigo-900 leading-tight">{{ editingLog.sub_category }}</div>
             <div class="flex justify-between items-center mt-3 pt-2 border-t border-indigo-100/50">
-              <span class="text-xs text-indigo-300 font-bold">被考核人: {{ editingLog.staff_name }}</span>
-              <span class="text-xs text-indigo-400 font-black">标准分: {{ editingLog.standard_score }}分</span>
+              <span class="text-xs text-indigo-300 font-bold">针对: {{ editingLog.staff_name }}</span>
+              <span class="text-xs text-indigo-400 font-black">标准分: {{ editingLog.standard_score || '--' }}分</span>
             </div>
           </div>
           <div>
-            <label class="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">分值修正 (扣分额)</label>
+            <label class="block text-xs font-black text-gray-400 uppercase mb-2 ml-1">分值修正</label>
             <div class="relative">
               <span class="absolute left-5 top-1/2 -translate-y-1/2 text-rose-500 font-black text-xl">扣</span>
               <input v-model="editingLog.final_score" type="number" 
@@ -140,8 +140,8 @@
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3 pt-2">
-            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm hover:bg-rose-100 transition-colors active:scale-95">删除记录</button>
-            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors active:scale-95">保存修改</button>
+            <button @click="handleDelete" class="py-4 bg-rose-50 text-rose-600 rounded-2xl font-black text-sm hover:bg-rose-100 transition-colors">删除记录</button>
+            <button @click="handleUpdate" class="py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg hover:bg-indigo-700 transition-colors">保存修改</button>
           </div>
         </div>
       </div>
@@ -165,13 +165,13 @@ const editingLog = ref(null)
 const retryingId = ref(null)
 const staffTree = ref({})
 
-// 获取当前登录用户信息
+// 获取用户信息
 const me = JSON.parse(localStorage.getItem('user_info') || '{}')
 const myVNumber = me.xft_user_id
 const myDept = me.dept_name
 const myJob = me.job_title || ''
 
-// --- 权限辅助计算 ---
+// --- 权限/搜索提示 ---
 const roleLabel = computed(() => {
   if (myDept.includes('管理组') || myDept.includes('后勤')) return '管理组视图 (全) '
   if (myJob.includes('店长') || myJob.includes('店经理')) return `门店视图 (${myDept})`
@@ -208,39 +208,39 @@ const setToLastMonth = () => {
 const isThisMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth(), 1)))
 const isLastMonth = computed(() => startDate.value === formatDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)))
 
-// --- 核心加载逻辑 ---
+// --- 数据加载 (含字段补齐与权限) ---
 const loadLogs = async () => {
-  let query = supabase
-    .from('perf_records')
-    .select(`
-      id,
-      final_score:score_value,   
-      score_date:record_date,    
-      store_name:target_dept_name,
-      staff_name:target_name,
-      staff_v_id:target_user_id,
-      category:category_label,
-      sub_category:description,
-      standard_score:score_impact,
-      sync_status,
-      starter_id,
-      starter_name
-    `)
+  let query = supabase.from('perf_records').select('*')
 
   const isOffice = myDept.includes('管理组') || myDept.includes('后勤') || myDept.includes('人力')
   const isManager = myJob.includes('店长') || myJob.includes('店经理')
 
-  if (isOffice) {
-    // 总部看全部
-  } else if (isManager) {
-    query = query.eq('target_dept_name', myDept)
-  } else {
-    query = query.eq('target_user_id', myVNumber)
+  if (!isOffice) {
+    if (isManager) query = query.eq('target_dept_name', myDept)
+    else query = query.eq('target_user_id', myVNumber)
   }
 
   const { data, error } = await query.order('record_date', { ascending: false })
-  if (error) console.error("加载失败:", error.message)
-  else logs.value = data || []
+  
+  if (error) {
+    console.error("加载失败:", error.message)
+  } else {
+    // 关键映射逻辑
+    logs.value = (data || []).map(item => ({
+      id: item.id,
+      final_score: item.score_value,
+      score_date: item.record_date,
+      store_name: item.target_dept_name,
+      staff_name: item.target_name,
+      staff_v_id: item.target_user_id,
+      category: item.category_label,
+      sub_category: item.description,
+      standard_score: item.score_impact, // 数据库新列
+      sync_status: item.sync_status,
+      starter_id: item.starter_id,
+      starter_name: item.starter_name
+    }))
+  }
 }
 
 const loadStaffData = async () => {
@@ -253,7 +253,7 @@ const loadStaffData = async () => {
   staffTree.value = tree
 }
 
-// --- 补发通知 ---
+// --- 补发消息 ---
 const retryPush = async (log) => {
   if (retryingId.value) return
   retryingId.value = log.id
@@ -301,7 +301,7 @@ const filteredLogs = computed(() => {
   })
 })
 
-// --- 修改/删除逻辑 ---
+// --- 修改逻辑 ---
 const openEdit = (log) => {
   editingLog.value = { ...log }
   isModalOpen.value = true
@@ -331,6 +331,7 @@ const handleDelete = async () => {
   }
 }
 
+// --- 导出 ---
 const exportToExcel = () => {
   const exportData = filteredLogs.value.map(log => ({
     '日期': log.score_date, 
