@@ -93,7 +93,7 @@ onMounted(async () => {
       const { data: byId } = await supabase
         .from('staff_cache')
         .select('*')
-        .eq('staff_number', stfnbr)
+        .eq('staff_seq', stfSeq)
         .maybeSingle();
       
       staff = byId;
@@ -109,8 +109,8 @@ onMounted(async () => {
       }
 
       if (!staff) {
-        console.error('匹配失败，已解析数据:', { name, stfnbr });
-        alert(`登录成功(薪福通: ${name})，但系统名单中找不到对应的记录。\n请确认工号 [${stfnbr}] 是否在系统中存在。`);
+        console.error('匹配失败，已解析数据:', { name, staff_seq });
+        alert(`登录成功(薪福通: ${name})，但系统名单中找不到对应的记录。\n请确认工号 [${staff_seq}] 是否在系统中存在。`);
         isProcessing.value = false;
         return;
       }
@@ -142,4 +142,5 @@ onMounted(async () => {
 });
 
 </script>
+
 
