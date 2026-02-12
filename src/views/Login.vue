@@ -93,7 +93,7 @@ onMounted(async () => {
       const { data: byId } = await supabase
         .from('staff_cache')
         .select('*')
-        .eq('xft_user_id', stfnbr)
+        .eq('staff_number', stfnbr)
         .maybeSingle();
       
       staff = byId;
@@ -142,3 +142,4 @@ onMounted(async () => {
 });
 
 </script>
+
