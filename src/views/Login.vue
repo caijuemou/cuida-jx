@@ -131,7 +131,7 @@ onMounted(async () => {
       }
 
       // 5. 存储并跳转
-      sessionStorage.setItem('user_info', JSON.stringify(staff));
+      localStorage.setItem('user_info', JSON.stringify(staff));
       
       // 清理 URL
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -153,6 +153,7 @@ onMounted(async () => {
 });
 
 </script>
+
 
 
 
