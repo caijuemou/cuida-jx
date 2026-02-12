@@ -80,71 +80,80 @@ onMounted(async () => {
       
       console.log('身份解码成功:', decodedString);
 
-      // 2. 解析字段 (严格对应日志中的 Key)
-      const name = decodedString.match(/USRNAM=([^|]+)/)?.[1]?.trim();
-      const stfnbr = decodedString.match(/STFNBR=([^|]+)/)?.[1]?.trim(); // 得到 "CD000023"
-      // const stfseq = decodedString.match(/STFSEQ=([^|]+)/)?.[1]?.trim(); // 如果需要，这样定义 stfseq
+      // 2. 解析核心字段 (注意 Key 必须完全匹配日志)
+      const xftName = decodedString.match(/USRNAM=([^|]+)/)?.[1]?.trim();
+      const xftStfnbr = decodedString.match(/STFNBR=([^|]+)/)?.[1]?.trim();
+      const xftSeq = decodedString.match(/STFSEQ=([^|]+)/)?.[1]?.trim(); // 对应你的 staff_seq
 
-      if (!name || !stfnbr) throw new Error("无法读取用户信息");
-
-      // 3. 匹配数据库
+      // 3. 增强匹配逻辑
       let staff = null;
 
-      // 策略 A: 尝试【完全匹配】 (对应数据库里存了 "CD000023" 的情况)
-      const { data: byId } = await supabase
-        .from('staff_cache')
-        .select('*')
-        .eq('staff_number', stfnbr) // 确认你的列名是 staff_number 还是 xft_user_id
-        .maybeSingle();
-      
-      staff = byId;
-
-      // 策略 B: 如果没中，尝试【去除前缀和零】的模糊匹配
-      // 比如把 "CD000023" 变成 "23"，去查数据库
-      if (!staff) {
-        const shortId = stfnbr.replace(/\D/g, '').replace(/^0+/, ''); // 提取数字并去前导零，得到 "23"
-        const { data: byShortId } = await supabase
+      // 策略 A: 优先使用 staff_seq 匹配 (这是最稳妥的唯一标识)
+      if (xftSeq) {
+        const { data: resSeq } = await supabase
           .from('staff_cache')
           .select('*')
-          .ilike('staff_number', `%${shortId}`) // 匹配以 "23" 结尾的工号
-          .maybeSingle();
-        staff = byShortId;
+          .eq('staff_seq', xftSeq)
+          .limit(1);
+        staff = resSeq?.[0];
+      }
+
+      // 策略 B: 如果 Seq 没中，用工号模糊匹配 (解决 CD00023 vs CD000023)
+      if (!staff && xftStfnbr) {
+        // 提取纯数字部分，比如从 CD000023 提取出 23
+        const pureNumber = xftStfnbr.replace(/\D/g, '').replace(/^0+/, '');
+        const { data: resId } = await supabase
+          .from('staff_cache')
+          .select('*')
+          .ilike('staff_number', `%${pureNumber}`)
+          .limit(1);
+        staff = resId?.[0];
       }
 
       // 策略 C: 姓名匹配
-      if (!staff) {
-        const { data: byName } = await supabase
+      if (!staff && xftName) {
+        const { data: resName } = await supabase
           .from('staff_cache')
           .select('*')
-          .eq('name', name)
-          .maybeSingle();
-        staff = byName;
+          .eq('name', xftName)
+          .limit(1);
+        staff = resName?.[0];
       }
 
+      // 4. 判定与状态处理
       if (!staff) {
-        alert(`未在系统名单找到：\n姓名：${name}\n工号：${stfnbr}\n\n请联系后台管理员核对工号格式！`);
-        isProcessing.value = false;
-        return;
+        throw new Error(`系统名单未收录：${xftName} (${xftStfnbr})`);
       }
 
-      // 4. 登录成功处理
-      localStorage.setItem('user_info', JSON.stringify(staff));
+      // 【重要】检查是否离职，如果是离职状态给出提示但允许进入（或根据业务拦截）
+      if (staff.is_active === false) {
+        console.warn('警告：该账号在系统中处于非激活状态');
+      }
+
+      // 5. 存储并跳转
+      sessionStorage.setItem('user_info', JSON.stringify(staff));
+      
+      // 清理 URL
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // 跳转逻辑...
-      const isSuper = staff.dept_name === '公司管理组' || staff.name === '蔡珏侔';
-      if (isSuper) router.push('/admin');
-      else router.push('/');
+      // 角色跳转
+      const isSuper = staff.dept_name?.includes('管理组') || staff.name === '蔡珏侔';
+      if (isSuper) {
+        router.push('/admin');
+      } else {
+        router.push('/');
+      }
 
     } catch (err) {
-      console.error('登录校验异常:', err);
-      alert('登录失败：' + err.message);
+      console.error('登录异常:', err);
+      alert(err.message || '身份校验失败');
       isProcessing.value = false;
     }
   }
 });
 
 </script>
+
 
 
 
