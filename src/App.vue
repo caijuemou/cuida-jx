@@ -154,9 +154,16 @@ const canAccessScoring = computed(() => {
 
 const handleLogout = () => {
   if (confirm('确定要退出系统吗？')) {
+    // 1. 清除所有相关缓存
     localStorage.removeItem('user_info');
+    sessionStorage.clear(); // 建议同时也清理下 session
+    
+    // 2. 立即重置响应式数据，防止导航栏依然显示原信息
     userInfo.value = {};
-    router.push('/login');
+    
+    // 3. 强制跳转到登录页
+    // 使用 window.location.href 而不是 router.push 可以彻底刷新应用状态
+    window.location.href = '/login';
   }
 };
 </script>
