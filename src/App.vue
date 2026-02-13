@@ -24,7 +24,7 @@
             <LayoutDashboardIcon :size="16" /> 考核大屏
           </router-link>
 
-          <router-link to="/history" class="pc-nav-link" active-class="pc-active">
+          <router-link v-if="!canAccessScoring" to="/history" class="pc-nav-link" active-class="pc-active">
             <ClipboardListIcon :size="16" /> 评分历史
           </router-link>
 
@@ -57,11 +57,12 @@
 
         <div v-if="canAccessScoring" class="dock-divider"></div>
 
-        <router-link to="/history" class="dock-link" active-class="dock-active">
-          <ClipboardListIcon :size="20" />
-        </router-link>
-
-        <div class="dock-divider"></div>
+        <template v-if="!canAccessScoring">
+          <router-link to="/history" class="dock-link" active-class="dock-active">
+            <ClipboardListIcon :size="20" />
+          </router-link>
+          <div class="dock-divider"></div>
+        </template>
 
         <router-link to="/dashboard" class="dock-link" active-class="dock-active">
           <LayoutDashboardIcon :size="20" />
