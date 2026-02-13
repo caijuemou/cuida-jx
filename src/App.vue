@@ -1,80 +1,84 @@
 <template>
-  <div class="min-h-screen bg-gray-50 font-sans antialiased text-gray-900">
-    <nav v-if="!route.meta.hideNav && userInfo.name" class="bg-white border-b border-gray-100 sticky top-0 z-50">
+  <div class="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-900">
+    
+    <header v-if="!route.meta.hideNav && userInfo.name" 
+            class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100">
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg shadow-lg shadow-indigo-500/20">
+        
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl shadow-inner overflow-hidden border border-slate-100 bg-white">
             <img src="/logo.jpg" alt="Logo" class="w-full h-full object-cover" />
           </div>
-          <div class="text-lg font-black tracking-tighter uppercase">
-            CUìDA <span class="text-indigo-600">Performance</span>
+          <div class="flex flex-col">
+            <span class="text-sm font-black tracking-tight leading-none uppercase">CUìDA</span>
+            <span class="text-[10px] text-indigo-500 font-bold uppercase tracking-widest leading-none mt-1">Performance</span>
           </div>
         </div>
-        
-        <div class="hidden md:flex items-center gap-8">
-          <div 
-            v-if="canAccessScoring" 
-            @click="safeNav('/')" 
-            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/' }]"
-          >绩效评分</div>
-        
-          <div 
-            @click="safeNav('/dashboard')" 
-            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/dashboard' }]"
-          >考核大屏</div>
 
-          <div 
-            v-if="!canAccessScoring" 
-            @click="safeNav('/history')" 
-            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/history' }]"
-          >评分历史</div>
-        
-          <div 
-            v-if="isSuperAdmin" 
-            @click="safeNav('/admin')" 
-            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/admin' }]"
-          >系统管理</div>
-        </div>
-        
-        <div class="flex items-center gap-4 border-l pl-6 border-gray-100">
+        <nav class="hidden md:flex items-center bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50">
+          <router-link v-if="canAccessScoring" to="/" class="pc-nav-link" active-class="pc-active">
+            <PenToolIcon :size="16" /> 绩效评分
+          </router-link>
+          
+          <router-link to="/dashboard" class="pc-nav-link" active-class="pc-active">
+            <LayoutDashboardIcon :size="16" /> 考核大屏
+          </router-link>
+
+          <router-link to="/history" class="pc-nav-link" active-class="pc-active">
+            <ClipboardListIcon :size="16" /> 评分历史
+          </router-link>
+
+          <router-link v-if="isSuperAdmin" to="/admin" class="pc-nav-link" active-class="pc-active">
+            <SettingsIcon :size="16" /> 系统管理
+          </router-link>
+        </nav>
+
+        <div class="flex items-center gap-4 border-l pl-6 border-slate-100">
           <div class="text-right hidden sm:block">
-            <div class="text-xs font-black text-gray-900 leading-none">{{ userInfo.name }}</div>
-            <div class="text-[10px] text-gray-400 font-bold mt-1 uppercase tracking-tighter">{{ userInfo.dept_name }}</div>
+            <div class="text-xs font-black text-slate-900 leading-none">{{ userInfo.name }}</div>
+            <div class="text-[9px] text-slate-400 font-bold mt-1 uppercase italic tracking-tighter">
+              {{ userInfo.dept_name }}
+            </div>
           </div>
-          <button @click="handleLogout" class="p-2 text-gray-300 hover:text-rose-500 transition-colors">
-            <LogOutIcon :size="20" />
+          <button @click="handleLogout" class="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all">
+            <LogOutIcon :size="18" />
           </button>
         </div>
       </div>
-    </nav>
+    </header>
 
-    <nav v-if="!route.meta.hideNav && userInfo.name" class="md:hidden fixed bottom-6 left-4 right-4 z-[100]">
-      <div class="bg-white/90 backdrop-blur-xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.2)] rounded-[2.5rem] p-2 flex justify-around items-center">
-        <router-link v-if="canAccessScoring" to="/" class="mobile-nav-link" active-class="active-mobile">
+    <nav v-if="!route.meta.hideNav && userInfo.name" 
+         class="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-4 w-full max-w-fit">
+      <div class="bg-slate-900/90 backdrop-blur-2xl p-2 rounded-[2.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/10 flex items-center gap-1">
+        
+        <router-link v-if="canAccessScoring" to="/" class="dock-link" active-class="dock-active">
           <PenToolIcon :size="20" />
-          <span>评分</span>
         </router-link>
 
-        <router-link to="/dashboard" class="mobile-nav-link" active-class="active-mobile">
-          <LayoutDashboardIcon :size="20" />
-          <span>大屏</span>
-        </router-link>
+        <div v-if="canAccessScoring" class="dock-divider"></div>
 
-        <router-link v-if="!canAccessScoring" to="/history" class="mobile-nav-link" active-class="active-mobile">
+        <router-link to="/history" class="dock-link" active-class="dock-active">
           <ClipboardListIcon :size="20" />
-          <span>历史</span>
         </router-link>
 
-        <router-link v-if="isSuperAdmin" to="/admin" class="mobile-nav-link" active-class="active-mobile">
-          <SettingsIcon :size="20" />
-          <span>管理</span>
+        <div class="dock-divider"></div>
+
+        <router-link to="/dashboard" class="dock-link" active-class="dock-active">
+          <LayoutDashboardIcon :size="20" />
         </router-link>
+
+        <template v-if="isSuperAdmin">
+          <div class="dock-divider"></div>
+          <router-link to="/admin" class="dock-link" active-class="dock-active">
+            <SettingsIcon :size="20" />
+          </router-link>
+        </template>
       </div>
     </nav>
 
-    <main :class="{ 'max-w-7xl mx-auto py-8 px-6 pb-28 md:pb-8': !route.meta.hideNav }">
+    <main :class="{ 'max-w-7xl mx-auto pt-6 px-4 pb-32 md:pb-12': !route.meta.hideNav }">
       <router-view v-slot="{ Component }">
-        <transition name="fade" mode="out-in">
+        <transition name="page-fade" mode="out-in">
           <component :is="Component" />
         </transition>
       </router-view>
@@ -94,9 +98,9 @@ const route = useRoute();
 const router = useRouter();
 const userInfo = ref({});
 
+// 加载用户信息
 const refreshUser = () => {
   try {
-    // 统一使用 localStorage
     const data = localStorage.getItem('user_info');
     userInfo.value = data ? JSON.parse(data) : {};
   } catch {
@@ -104,15 +108,10 @@ const refreshUser = () => {
   }
 };
 
-const safeNav = (targetPath) => {
-  if (route.path === targetPath) return;
-  router.push({ path: targetPath });
-};
-
 onMounted(refreshUser);
 watch(() => route.path, refreshUser);
 
-// 权限判定逻辑
+// --- 权限判定 ---
 const isSuperAdmin = computed(() => {
   const dept = userInfo.value.dept_name || '';
   return dept.includes('管理组') || userInfo.value.name === '蔡珏侔';
@@ -131,3 +130,82 @@ const handleLogout = () => {
   }
 };
 </script>
+
+<style scoped>
+/* --- PC 端胶囊导航样式 --- */
+.pc-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #64748b; /* slate-500 */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pc-nav-link:hover {
+  color: #4f46e5; /* indigo-600 */
+}
+
+.pc-active {
+  background-color: white;
+  color: #4f46e5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(226, 232, 240, 0.5); /* slate-200/50 */
+}
+
+/* --- 移动端黑色 Dock 样式 --- */
+.dock-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 20px;
+  color: #94a3b8; /* slate-400 */
+  transition: all 0.3s ease;
+}
+
+.dock-active {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.dock-divider {
+  width: 1px;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.1);
+  margin: 0 4px;
+}
+
+/* --- 页面过渡动画 --- */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: all 0.3s ease;
+}
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* --- 全局滚动条美化 (针对PC) --- */
+:global(::-webkit-scrollbar) {
+  width: 6px;
+}
+:global(::-webkit-scrollbar-track) {
+  background: transparent;
+}
+:global(::-webkit-scrollbar-thumb) {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+:global(::-webkit-scrollbar-thumb:hover) {
+  background: #cbd5e1;
+}
+</style>
