@@ -99,78 +99,52 @@ const route = useRoute();
 const router = useRouter();
 const userInfo = ref({});
 
-/**
- * 解析薪福通 URL 中的 data 参数
- * 格式通常为 Base64 后的 key1=val1|key2=val2...
- */
-const parseXftParams = (dataStr) => {
-  try {
-    // 1. Base64 解码
-    const decoded = atob(dataStr);
-    // 2. 按 | 分割成数组，再转成对象
-    const params = {};
-    decoded.split('|').forEach(item => {
-      const [key, val] = item.split('=');
-      if (key) params[key] = val;
-    });
-    return params;
-  } catch (e) {
-    console.error('解析薪福通参数失败:', e);
-    return null;
-  }
-};
-
-// 核心：刷新/同步用户信息
+// 刷新用户信息逻辑
 const refreshUser = () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const xftData = urlParams.get('data');
+  // 1. 检查 URL 是否带 data 参数
+  const params = new URLSearchParams(window.location.search);
+  const hasData = params.has('data');
 
-  // 1. 尝试从 URL SSO 登录
-  if (xftData) {
-    const params = parseXftParams(xftData);
-    if (params && params.USRNBR) {
-      const ssoUser = {
-        name: params.USRNAME || '未知用户',
-        xft_user_id: params.USRNBR,
-        dept_name: params.DEPTNAME || '默认部门', // 尝试解析部门
-        job_title: '员工'
-      };
-      localStorage.setItem('user_info', JSON.stringify(ssoUser));
-      userInfo.value = ssoUser;
-      const cleanUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-      return;
-    }
+  // 2. 如果当前在登录页，或者 URL 带着 data 参数（准备去登录页解析）
+  // 我们不需要在 App.vue 做拦截，直接放行
+  if (route.path === '/login' || hasData) {
+    return;
   }
 
-  // 2. 尝试从缓存读取
+  // 3. 常规检查本地缓存
   const localData = localStorage.getItem('user_info');
   if (localData) {
     try {
       const parsed = JSON.parse(localData);
-      if (parsed.name) {
+      if (parsed && parsed.name) {
         userInfo.value = parsed;
-        return; 
+        return; // 验证通过
       }
     } catch (e) {
       localStorage.removeItem('user_info');
     }
   }
 
-  // 3. 拦截：既没 SSO 也没缓存，且当前不在登录页
-  if (route.path !== '/login' && !route.meta.hideNav) {
-    console.warn('未检测到合法登录，强制跳转登录页');
-    router.replace('/login'); 
+  // 4. 终极拦截：既没登录态，也不是要去登录，强制送去登录页
+  if (!route.meta.hideNav) {
+    console.warn('[Auth] 无合法身份，引导至登录页');
+    router.replace('/login');
   }
 };
 
 onMounted(refreshUser);
-watch(() => route.path, refreshUser);
 
-// --- 权限判定 ---
+// 监听路由变化
+watch(() => route.path, (newPath) => {
+  // 每次切页面都校准一次身份，防止手动清除 storage 绕过
+  refreshUser();
+});
+
+// --- 权限判定 (基于你 LoginView 存入的 staff 结构) ---
 const isSuperAdmin = computed(() => {
   const dept = userInfo.value.dept_name || '';
-  return dept.includes('管理组') || userInfo.value.name === '蔡珏侔';
+  const name = userInfo.value.name || '';
+  return dept.includes('管理组') || name === '蔡珏侔';
 });
 
 const canAccessScoring = computed(() => {
