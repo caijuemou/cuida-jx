@@ -99,8 +99,58 @@ const route = useRoute();
 const router = useRouter();
 const userInfo = ref({});
 
-// 加载用户信息
+/**
+ * 解析薪福通 URL 中的 data 参数
+ * 格式通常为 Base64 后的 key1=val1|key2=val2...
+ */
+const parseXftParams = (dataStr) => {
+  try {
+    // 1. Base64 解码
+    const decoded = atob(dataStr);
+    // 2. 按 | 分割成数组，再转成对象
+    const params = {};
+    decoded.split('|').forEach(item => {
+      const [key, val] = item.split('=');
+      if (key) params[key] = val;
+    });
+    return params;
+  } catch (e) {
+    console.error('解析薪福通参数失败:', e);
+    return null;
+  }
+};
+
+// 核心：刷新/同步用户信息
 const refreshUser = () => {
+  // 1. 尝试从 URL 获取单点登录参数
+  const urlParams = new URLSearchParams(window.location.search);
+  const xftData = urlParams.get('data');
+
+  if (xftData) {
+    const params = parseXftParams(xftData);
+    if (params && params.USRNBR) {
+      // 构造标准用户信息对象 (映射关系根据你之前的代码确定)
+      const ssoUser = {
+        name: params.USRNAME || '未知用户',
+        xft_user_id: params.USRNBR, // V007E 这种工号
+        dept_name: '同步中...', // 部门信息通常需要进系统后二次查询或从其他参数解析
+        job_title: '员工'       // 默认值，后续可由业务逻辑更新
+      };
+      
+      // 存入本地，实现静默登录
+      localStorage.setItem('user_info', JSON.stringify(ssoUser));
+      userInfo.value = ssoUser;
+
+      // 关键步骤：清理 URL 上的长参数，保持地址栏干净
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+      
+      console.log('✅ 薪福通静默登录成功:', ssoUser.name);
+      return;
+    }
+  }
+
+  // 2. 如果 URL 没参数，走常规缓存读取
   try {
     const data = localStorage.getItem('user_info');
     userInfo.value = data ? JSON.parse(data) : {};
