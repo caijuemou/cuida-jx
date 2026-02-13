@@ -175,12 +175,12 @@ const myJob = me.job_title || ''
 const roleLabel = computed(() => {
   if (myDept.includes('管理组') || myDept.includes('后勤')) return '管理组视图 (全) '
   if (myJob.includes('店长') || myJob.includes('店经理')) return `门店视图 (${myDept})`
-  return '个人视图'
+  return '个人绩效汇总'
 })
 
 const searchPlaceholder = computed(() => {
   if (myDept.includes('管理组')) return "搜索姓名、门店、或考核内容..."
-  if (myJob.includes('店长')) return "搜索本店员工姓名..."
+  if (myJob.includes('店长') || myJob.includes('店经理')) return "搜索本店员工姓名..."
   return "在我的记录中搜索内容..."
 })
 
@@ -212,12 +212,28 @@ const isLastMonth = computed(() => startDate.value === formatDate(new Date(now.g
 const loadLogs = async () => {
   let query = supabase.from('perf_records').select('*')
 
-  const isOffice = myDept.includes('管理组') || myDept.includes('后勤') || myDept.includes('人力')
-  const isManager = myJob.includes('店长') || myJob.includes('店经理')
+  // 1. 明确角色身份
+  const isOffice = myDept.includes('管理组') || 
+                   myDept.includes('后勤') || 
+                   myDept.includes('人力') || 
+                   myDept.includes('财务')
+  
+  const isManager = myJob.includes('店长') || 
+                    myJob.includes('店经理') || 
+                    myJob.includes('负责人')
 
-  if (!isOffice) {
-    if (isManager) query = query.eq('target_dept_name', myDept)
-    else query = query.eq('target_user_id', myVNumber)
+  // 2. 分层施加过滤条件
+  if (isOffice) {
+    // 管理组：不做任何过滤，查询全部
+    console.log("权限级别：管理组 - 全量查看");
+  } else if (isManager) {
+    // 店经理/店长：只能查看自己门店的员工记录
+    query = query.eq('target_dept_name', myDept)
+    console.log(`权限级别：店经理 - 查看门店: ${myDept}`);
+  } else {
+    // 普通员工：只能查看被考核人 ID 是自己的记录
+    query = query.eq('target_user_id', myVNumber)
+    console.log(`权限级别：员工 - 仅查看个人`);
   }
 
   const { data, error } = await query.order('record_date', { ascending: false })
@@ -354,5 +370,6 @@ onMounted(() => {
   loadStaffData()
 })
 </script>
+
 
 
