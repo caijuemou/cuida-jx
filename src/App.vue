@@ -155,7 +155,7 @@ const canAccessScoring = computed(() => {
 const handleLogout = () => {
   if (confirm('确定要退出系统吗？')) {
     // 1. 清除所有相关缓存
-    localStorage.removeItem('user_info');
+    localStorage.clear();
     sessionStorage.clear(); // 建议同时也清理下 session
     
     // 2. 立即重置响应式数据，防止导航栏依然显示原信息
