@@ -6,7 +6,7 @@ import Login from '../views/Login.vue'
 
 const routes = [
   {
-    path: '/login', // 建议小写保持规范
+    path: '/login',
     name: 'Login',
     component: Login,
     meta: { hideNav: true }
@@ -27,7 +27,6 @@ const routes = [
     component: DashboardView
   },
   {
-    // 修改：将路径从 /admin/history 简化为 /history
     path: "/history", 
     name: "history",
     component: () => import('../views/HistoryView.vue')
@@ -92,6 +91,12 @@ router.beforeEach((to, from, next) => {
 
   // 2. 评分页面校验 (首页)
   if (targetPath === '/' && !hasScoringAccess) {
+    return next('/history');
+  }
+
+  // 3. 针对 /score 路径的权限校验
+  if (targetPath.startsWith('/score') && !hasScoringAccess) {
+    // 如果没有评分权限，直接送去历史页（或者他能去的页面）
     return next('/history');
   }
 
