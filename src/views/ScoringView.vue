@@ -189,9 +189,182 @@ const loadData = async () => {
     console.error("加载失败:", err)
   }
 }
+const currentPickerTitle = computed(() => {
+  if (pickerMode.value === 'staff') {
+    return ['选择区域', '选择片区', '选择门店', '选择人员'][staffStep.value - 1]
+  }
+  return ['选择考核分类', '点选具体项'][itemStep.value - 1]
+})
 
-// --- 剩下的交互逻辑保持不变 (selectStaff, submitScore, handleStaffSearch 等) ---
-// ... 
+const currentStaffOptions = computed(() => {
+  if (staffStep.value === 1) return Object.keys(staffTree.value)
+  if (staffStep.value === 2) return Object.keys(staffTree.value[currentRegion.value] || {})
+  if (staffStep.value === 3) return Object.keys(staffTree.value[currentRegion.value]?.[currentDistrict.value] || {})
+  return staffTree.value[currentRegion.value]?.[currentDistrict.value]?.[currentDept.value] || []
+})
+
+const filteredItems = computed(() => {
+  const role = isManagerMode.value ? 'manager' : 'staff'
+  return allItems.value.filter(i => i.applicable_to === role)
+})
+
+const currentItemOptions = computed(() => {
+  if (itemStep.value === 1) return [...new Set(filteredItems.value.map(i => i.category))]
+  return filteredItems.value.filter(i => i.category === currentCategory.value)
+})
+
+// --- 4. 交互处理 ---
+const handleStaffStepClick = (val) => {
+  if (staffStep.value === 1) { currentRegion.value = val; staffStep.value = 2; } 
+  else if (staffStep.value === 2) {
+    currentDistrict.value = val;
+    const nextOptions = Object.keys(staffTree.value[currentRegion.value]?.[val] || {});
+    if (nextOptions.length === 1 && nextOptions[0] === val) {
+      currentDept.value = val; staffStep.value = 4;
+    } else { staffStep.value = 3; }
+  } 
+  else if (staffStep.value === 3) { currentDept.value = val; staffStep.value = 4; } 
+  else { selectStaff(val); }
+}
+
+const handleItemStepClick = (val) => {
+  if (itemStep.value === 1) { currentCategory.value = val; itemStep.value = 2 }
+  else { selectItem(val) }
+}
+
+const selectStaff = (s) => {
+  form.value.staff_id = s.xft_user_id
+  form.value.staff_name = s.name
+  form.value.store_name = s.dept_name
+  const job = s.job_title || ''
+  isManagerMode.value = job.includes('店长') || job.includes('店经理')
+  clearItem()
+  closePicker()
+}
+
+const selectItem = (i) => {
+  form.value.item_id = i.id
+  form.value.item_name = i.sub_category
+  form.value.category_name = i.category
+  form.value.score = i.score_impact  // 默认填充标准分到输入框
+  standardScore.value = i.score_impact // 锁定标准分快照
+  closePicker()
+}
+
+const handleStaffSearch = async () => {
+  if (searchStaffQuery.value.length < 1) return staffSearchResults.value = []
+  const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+  let query = supabase.from('staff_cache').select('*').eq('is_active', true)
+  if (me.job_title?.includes('店') && me.dept_name !== '公司管理组') {
+    query = query.eq('dept_name', me.dept_name)
+  }
+  const { data } = await query.or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`).limit(10)
+  staffSearchResults.value = data || []
+}
+
+const handleItemSearch = () => {
+  if (searchItemQuery.value.length < 1) return itemSearchResults.value = []
+  itemSearchResults.value = filteredItems.value.filter(i => i.sub_category.includes(searchItemQuery.value)).slice(0, 8)
+}
+
+// --- 5. 核心提交逻辑 ---
+const submitScore = async () => {
+  if (submitting.value) return
+  submitting.value = true
+
+  try {
+    const me = JSON.parse(localStorage.getItem('user_info') || '{}')
+    if (!me.xft_user_id) throw new Error("登录信息失效，请重新登录")
+
+    // 抄送逻辑
+    let carbonCopyVId = null
+    const isFromManagement = me.dept_name?.includes('公司管理组') || me.dept_name?.includes('后勤组')
+    if (isFromManagement && !isManagerMode.value) {
+      const staffInDept = staffTree.value[currentRegion.value]?.[currentDistrict.value]?.[form.value.store_name] || []
+      const manager = staffInDept.find(s => s.job_title?.includes('店长') || s.job_title?.includes('店经理'))
+      if (manager && manager.xft_user_id !== form.value.staff_id) { carbonCopyVId = manager.xft_user_id }
+    }
+
+    // --- 保存记录 (perf_records) ---
+    const record = {
+      starter_id: me.xft_user_id,
+      starter_name: me.name,
+      target_user_id: form.value.staff_id,
+      target_name: form.value.staff_name,
+      target_dept_name: form.value.store_name,
+      category_label: form.value.category_name,
+      score_value: String(form.value.score), // 实际扣的分
+      score_impact: String(standardScore.value), // 【关键：记录标准分】
+      description: `考核项: ${form.value.item_name}`,
+      record_date: form.value.date,
+      sync_status: 'pending'
+    }
+
+    const { data: dbData, error: dbError } = await supabase.from('perf_records').insert(record).select().single()
+    if (dbError) throw new Error("保存失败: " + dbError.message)
+
+    // --- 发送通知 ---
+    const { error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
+      body: { 
+        target_user_id: form.value.staff_id, 
+        target_name: form.value.staff_name,
+        item_name: form.value.item_name,
+        score: form.value.score,
+        manager_v_id: carbonCopyVId 
+      } 
+    })
+
+    const finalStatus = !invokeError ? 'sent' : 'failed'
+    await supabase.from('perf_records').update({ sync_status: finalStatus }).eq('id', dbData.id)
+
+    if (invokeError) {
+      alert("✅ 考核已记录，但通知推送失败。")
+    } else {
+      let msg = `🚀 提交成功！已通知【${form.value.staff_name}】。`
+      if (carbonCopyVId) msg += " 同时已抄送店经理。"
+      alert(msg)
+    }
+
+    clearStaff() 
+  } catch (err) {
+    alert('❌ 操作失败: ' + err.message)
+  } finally {
+    submitting.value = false
+  }
+}
+
+// --- 6. 辅助工具 ---
+const goBack = () => {
+  if (pickerMode.value === 'staff' && staffStep.value > 1) staffStep.value--
+  else if (pickerMode.value === 'item' && itemStep.value > 1) itemStep.value--
+}
+const clearStaff = () => { form.value.staff_id = ''; form.value.staff_name = ''; isManagerMode.value = false; clearItem() }
+const clearItem = () => { 
+  form.value.item_id = ''; 
+  form.value.item_name = ''; 
+  form.value.score = 0; 
+  standardScore.value = 0; // 重置标准分
+}
+const openStaffPicker = () => {
+  pickerMode.value = 'staff';
+  const regions = Object.keys(staffTree.value);
+  if (regions.length === 1) {
+    currentRegion.value = regions[0];
+    const districts = Object.keys(staffTree.value[regions[0]]);
+    if (districts.length === 1) {
+      currentDistrict.value = districts[0];
+      const stores = Object.keys(staffTree.value[regions[0]][districts[0]]);
+      if (stores.length === 1) { currentDept.value = stores[0]; staffStep.value = 4; return; }
+      staffStep.value = 3; return;
+    }
+    staffStep.value = 2; return;
+  }
+  staffStep.value = 1;
+}
+const openItemPicker = () => { pickerMode.value = 'item'; itemStep.value = 1 }
+const closePicker = () => { pickerMode.value = null }
+const isReady = computed(() => form.value.staff_id && form.value.item_id)
+ 
 
 onMounted(loadData)
 </script>
