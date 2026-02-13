@@ -122,54 +122,45 @@ const parseXftParams = (dataStr) => {
 
 // 核心：刷新/同步用户信息
 const refreshUser = () => {
-  // 1. 尝试从 URL 获取单点登录参数
   const urlParams = new URLSearchParams(window.location.search);
   const xftData = urlParams.get('data');
 
+  // 1. 尝试从 URL SSO 登录
   if (xftData) {
     const params = parseXftParams(xftData);
     if (params && params.USRNBR) {
-      // 构造标准用户信息对象 (映射关系根据你之前的代码确定)
       const ssoUser = {
         name: params.USRNAME || '未知用户',
-        xft_user_id: params.USRNBR, // V007E 这种工号
-        dept_name: '同步中...', // 部门信息通常需要进系统后二次查询或从其他参数解析
-        job_title: '员工'       // 默认值，后续可由业务逻辑更新
+        xft_user_id: params.USRNBR,
+        dept_name: params.DEPTNAME || '默认部门', // 尝试解析部门
+        job_title: '员工'
       };
-      
-      // 存入本地，实现静默登录
       localStorage.setItem('user_info', JSON.stringify(ssoUser));
       userInfo.value = ssoUser;
-
-      // 关键步骤：清理 URL 上的长参数，保持地址栏干净
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
-      
-      console.log('✅ 薪福通静默登录成功:', ssoUser.name);
       return;
     }
   }
 
-  // 2. 如果 URL 没参数，走常规缓存读取
+  // 2. 尝试从缓存读取
   const localData = localStorage.getItem('user_info');
   if (localData) {
     try {
-      userInfo.value = JSON.parse(localData);
-      return; // 已登录，正常继续
+      const parsed = JSON.parse(localData);
+      if (parsed.name) {
+        userInfo.value = parsed;
+        return; 
+      }
     } catch (e) {
       localStorage.removeItem('user_info');
     }
   }
 
-  // 3. 【关键：强制跳转逻辑】
-  // 如果执行到这里，说明：URL没参数 且 本地没缓存 -> 视为“未登录”
-  // 如果当前不在登录页，且不是在排除页面，则强制跳转
-  if (!route.meta.hideNav) {
-    console.log('未检测到登录状态，正在引导至登录...');
-    
-    // 如果你希望直接跳到薪福通官方登录页（即你那个长链接的来源），直接 window.location.href
-    // 如果你有一个自己的 LoginView.vue，则 router.push('/login')
-    router.push('/login'); 
+  // 3. 拦截：既没 SSO 也没缓存，且当前不在登录页
+  if (route.path !== '/login' && !route.meta.hideNav) {
+    console.warn('未检测到合法登录，强制跳转登录页');
+    router.replace('/login'); 
   }
 };
 
