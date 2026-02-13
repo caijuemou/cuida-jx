@@ -59,7 +59,7 @@ router.beforeEach((to, from, next) => {
     next('/'); // 不是超管想进管理页，弹回首页
   }
   else if (to.path === '/' && (!isSuper && !isManager)) {
-    next('/dashboard'); // 既不是超管也不是店经理，不准打分，去大屏
+    next('/history'); // 既不是超管也不是店经理，不准打分，去大屏
   }
   else {
     next(); // 校验通过，放行
