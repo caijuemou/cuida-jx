@@ -151,11 +151,25 @@ const refreshUser = () => {
   }
 
   // 2. 如果 URL 没参数，走常规缓存读取
-  try {
-    const data = localStorage.getItem('user_info');
-    userInfo.value = data ? JSON.parse(data) : {};
-  } catch {
-    userInfo.value = {};
+  const localData = localStorage.getItem('user_info');
+  if (localData) {
+    try {
+      userInfo.value = JSON.parse(localData);
+      return; // 已登录，正常继续
+    } catch (e) {
+      localStorage.removeItem('user_info');
+    }
+  }
+
+  // 3. 【关键：强制跳转逻辑】
+  // 如果执行到这里，说明：URL没参数 且 本地没缓存 -> 视为“未登录”
+  // 如果当前不在登录页，且不是在排除页面，则强制跳转
+  if (!route.meta.hideNav) {
+    console.log('未检测到登录状态，正在引导至登录...');
+    
+    // 如果你希望直接跳到薪福通官方登录页（即你那个长链接的来源），直接 window.location.href
+    // 如果你有一个自己的 LoginView.vue，则 router.push('/login')
+    router.push('/login'); 
   }
 };
 
