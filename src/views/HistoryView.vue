@@ -228,7 +228,7 @@ const loadLogs = async () => {
     console.log("权限级别：管理组 - 全量查看");
   } else if (isManager) {
     // 店经理/店长：只能查看自己门店的员工记录
-    query = query.eq('target_dept_name', myDept)
+    query = query.or(`target_dept_name.eq."${myDept}",starter_id.eq."${myVNumber}"`)
     console.log(`权限级别：店经理 - 查看门店: ${myDept}`);
   } else {
     // 普通员工：只能查看被考核人 ID 是自己的记录
@@ -370,6 +370,7 @@ onMounted(() => {
   loadStaffData()
 })
 </script>
+
 
 
 
