@@ -59,9 +59,17 @@ const handleXFTLogin = () => {
   const XFT_DOMAIN = "https://xft.cmbchina.com";
   const APP_ID = "0692caa6-c700-403f-8667-96cd41adfca5";
   const REDIRECT_URI = encodeURIComponent(window.location.origin + "/login");
-  const STATE = Date.now().toString();
+  const ENTERPRISE_ID = "AAB59764"
+  const STATE = 'REAUTH_' + Date.now();
   
-  const authUrl = `${XFT_DOMAIN}/xft-gateway/xft-login-new/xwapi/oauth/authorize?app_id=${APP_ID}&redirect_uri=${REDIRECT_URI}&state=${STATE}`;
+  let authUrl = `${XFT_DOMAIN}/xft-gateway/xft-login-new/xwapi/oauth/authorize` +
+                `?app_id=${APP_ID}` +
+                `&redirect_uri=${REDIRECT_URI}` +
+                `&state=${STATE}`;
+  
+  if (ENTERPRISE_ID) {
+    authUrl += `&enterprise_id=${ENTERPRISE_ID}`;
+  }
   window.location.href = authUrl;
 };
 
@@ -153,6 +161,7 @@ onMounted(async () => {
 });
 
 </script>
+
 
 
 
