@@ -91,12 +91,46 @@
       </button>
     </section>
 
-    </div>
+    <Transition name="fade">
+      <div v-if="pickerMode" class="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="closePicker"></div>
+        <div class="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl relative overflow-hidden animate-in slide-in-from-bottom duration-300">
+          <div class="p-6 border-b border-slate-50 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <button v-if="(pickerMode === 'staff' && staffStep > 1) || (pickerMode === 'item' && itemStep > 1)" 
+                @click="goBack" class="p-2 hover:bg-slate-100 rounded-xl transition-all">
+                <ChevronLeftIcon :size="20" />
+              </button>
+              <h3 class="text-lg font-black text-slate-800">{{ currentPickerTitle }}</h3>
+            </div>
+            <button @click="closePicker" class="p-2.5 bg-slate-50 text-slate-400 hover:text-rose-500 rounded-xl">
+              <XIcon :size="20" />
+            </button>
+          </div>
+
+          <div class="p-4 max-h-[55vh] overflow-y-auto">
+            <div class="grid grid-cols-1 gap-2">
+              <button v-for="opt in (pickerMode === 'staff' ? currentStaffOptions : currentItemOptions)" 
+                :key="typeof opt === 'string' ? opt : (opt.xft_user_id || opt.id)"
+                @click="pickerMode === 'staff' ? handleStaffStepClick(opt) : handleItemStepClick(opt)"
+                class="w-full p-4 rounded-2xl bg-slate-50 hover:bg-indigo-50 text-left font-bold transition-all flex items-center justify-between group">
+                <div class="flex flex-col">
+                   <span class="group-hover:text-indigo-600">{{ typeof opt === 'string' ? opt : (opt.name || opt.sub_category) }}</span>
+                   <span v-if="opt.job_title" class="text-[10px] text-slate-400">{{ opt.job_title }}</span>
+                </div>
+                <ChevronRightIcon :size="18" class="text-slate-300 group-hover:text-indigo-400" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router' // 引入路由
+import { useRouter } from 'vue-router'
 import { supabase } from '../composables/useSupabase'
 import { 
   SearchIcon, UserIcon, XIcon, ChevronRightIcon, 
@@ -117,7 +151,7 @@ const canAccessScoring = computed(() => {
   return isSuperAdmin.value || job.includes('店经理') || job.includes('店长')
 })
 
-// --- 1. 状态定义 ---
+// --- 状态定义 ---
 const form = ref({ 
   staff_id: '', staff_name: '', store_name: '', 
   date: new Date().toISOString().split('T')[0], 
@@ -141,9 +175,8 @@ const itemStep = ref(1)
 const currentCategory = ref('') 
 const standardScore = ref(0)
 
-// --- 2. 加载数据 ---
+// --- 加载数据 ---
 const loadData = async () => {
-  // 核心安全检查：如果普通员工误入，直接踢到历史页
   if (!canAccessScoring.value) {
     router.push('/history')
     return
@@ -189,6 +222,8 @@ const loadData = async () => {
     console.error("加载失败:", err)
   }
 }
+
+// --- 计算属性 (用于弹窗展示) ---
 const currentPickerTitle = computed(() => {
   if (pickerMode.value === 'staff') {
     return ['选择区域', '选择片区', '选择门店', '选择人员'][staffStep.value - 1]
@@ -213,7 +248,7 @@ const currentItemOptions = computed(() => {
   return filteredItems.value.filter(i => i.category === currentCategory.value)
 })
 
-// --- 4. 交互处理 ---
+// --- 交互处理 ---
 const handleStaffStepClick = (val) => {
   if (staffStep.value === 1) { currentRegion.value = val; staffStep.value = 2; } 
   else if (staffStep.value === 2) {
@@ -246,8 +281,8 @@ const selectItem = (i) => {
   form.value.item_id = i.id
   form.value.item_name = i.sub_category
   form.value.category_name = i.category
-  form.value.score = i.score_impact  // 默认填充标准分到输入框
-  standardScore.value = i.score_impact // 锁定标准分快照
+  form.value.score = i.score_impact 
+  standardScore.value = i.score_impact 
   closePicker()
 }
 
@@ -267,7 +302,7 @@ const handleItemSearch = () => {
   itemSearchResults.value = filteredItems.value.filter(i => i.sub_category.includes(searchItemQuery.value)).slice(0, 8)
 }
 
-// --- 5. 核心提交逻辑 ---
+// --- 核心提交逻辑 ---
 const submitScore = async () => {
   if (submitting.value) return
   submitting.value = true
@@ -276,7 +311,6 @@ const submitScore = async () => {
     const me = JSON.parse(localStorage.getItem('user_info') || '{}')
     if (!me.xft_user_id) throw new Error("登录信息失效，请重新登录")
 
-    // 抄送逻辑
     let carbonCopyVId = null
     const isFromManagement = me.dept_name?.includes('公司管理组') || me.dept_name?.includes('后勤组')
     if (isFromManagement && !isManagerMode.value) {
@@ -285,7 +319,6 @@ const submitScore = async () => {
       if (manager && manager.xft_user_id !== form.value.staff_id) { carbonCopyVId = manager.xft_user_id }
     }
 
-    // --- 保存记录 (perf_records) ---
     const record = {
       starter_id: me.xft_user_id,
       starter_name: me.name,
@@ -293,8 +326,8 @@ const submitScore = async () => {
       target_name: form.value.staff_name,
       target_dept_name: form.value.store_name,
       category_label: form.value.category_name,
-      score_value: String(form.value.score), // 实际扣的分
-      score_impact: String(standardScore.value), // 【关键：记录标准分】
+      score_value: String(form.value.score), 
+      score_impact: String(standardScore.value),
       description: `考核项: ${form.value.item_name}`,
       record_date: form.value.date,
       sync_status: 'pending'
@@ -303,7 +336,6 @@ const submitScore = async () => {
     const { data: dbData, error: dbError } = await supabase.from('perf_records').insert(record).select().single()
     if (dbError) throw new Error("保存失败: " + dbError.message)
 
-    // --- 发送通知 ---
     const { error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
       body: { 
         target_user_id: form.value.staff_id, 
@@ -333,38 +365,43 @@ const submitScore = async () => {
   }
 }
 
-// --- 6. 辅助工具 ---
+// --- 辅助工具 ---
 const goBack = () => {
   if (pickerMode.value === 'staff' && staffStep.value > 1) staffStep.value--
   else if (pickerMode.value === 'item' && itemStep.value > 1) itemStep.value--
 }
-const clearStaff = () => { form.value.staff_id = ''; form.value.staff_name = ''; isManagerMode.value = false; clearItem() }
+const clearStaff = () => { 
+  form.value.staff_id = ''; 
+  form.value.staff_name = ''; 
+  isManagerMode.value = false; 
+  searchStaffQuery.value = '';
+  clearItem() 
+}
 const clearItem = () => { 
   form.value.item_id = ''; 
   form.value.item_name = ''; 
   form.value.score = 0; 
-  standardScore.value = 0; // 重置标准分
+  standardScore.value = 0;
+  searchItemQuery.value = '';
 }
 const openStaffPicker = () => {
   pickerMode.value = 'staff';
-  const regions = Object.keys(staffTree.value);
-  if (regions.length === 1) {
-    currentRegion.value = regions[0];
-    const districts = Object.keys(staffTree.value[regions[0]]);
-    if (districts.length === 1) {
-      currentDistrict.value = districts[0];
-      const stores = Object.keys(staffTree.value[regions[0]][districts[0]]);
-      if (stores.length === 1) { currentDept.value = stores[0]; staffStep.value = 4; return; }
-      staffStep.value = 3; return;
-    }
-    staffStep.value = 2; return;
-  }
   staffStep.value = 1;
 }
 const openItemPicker = () => { pickerMode.value = 'item'; itemStep.value = 1 }
 const closePicker = () => { pickerMode.value = null }
 const isReady = computed(() => form.value.staff_id && form.value.item_id)
- 
 
 onMounted(loadData)
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+</style>
