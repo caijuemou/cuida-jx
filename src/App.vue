@@ -4,11 +4,7 @@
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg shadow-lg shadow-indigo-500/20">
-            <img 
-              src="/logo.jpg" 
-              alt="Logo" 
-              class="w-full h-full object-cover"
-            />
+            <img src="/logo.jpg" alt="Logo" class="w-full h-full object-cover" />
           </div>
           <div class="text-lg font-black tracking-tighter uppercase">
             CUìDA <span class="text-indigo-600">Performance</span>
@@ -26,6 +22,12 @@
             @click="safeNav('/dashboard')" 
             :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/dashboard' }]"
           >考核大屏</div>
+
+          <div 
+            v-if="!canAccessScoring" 
+            @click="safeNav('/history')" 
+            :class="['nav-link cursor-pointer', { 'active-pc': route.path === '/history' }]"
+          >评分历史</div>
         
           <div 
             v-if="isSuperAdmin" 
@@ -39,7 +41,7 @@
             <div class="text-xs font-black text-gray-900 leading-none">{{ userInfo.name }}</div>
             <div class="text-[10px] text-gray-400 font-bold mt-1 uppercase tracking-tighter">{{ userInfo.dept_name }}</div>
           </div>
-          <button @click="handleLogout" class="p-2 text-gray-300 hover:text-rose-500 transition-colors" title="退出系统">
+          <button @click="handleLogout" class="p-2 text-gray-300 hover:text-rose-500 transition-colors">
             <LogOutIcon :size="20" />
           </button>
         </div>
@@ -56,6 +58,11 @@
         <router-link to="/dashboard" class="mobile-nav-link" active-class="active-mobile">
           <LayoutDashboardIcon :size="20" />
           <span>大屏</span>
+        </router-link>
+
+        <router-link v-if="!canAccessScoring" to="/history" class="mobile-nav-link" active-class="active-mobile">
+          <ClipboardListIcon :size="20" />
+          <span>历史</span>
         </router-link>
 
         <router-link v-if="isSuperAdmin" to="/admin" class="mobile-nav-link" active-class="active-mobile">
@@ -78,33 +85,18 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-// 导入所有需要的图标
 import { 
-  LogOutIcon, 
-  PenToolIcon, 
-  ClipboardListIcon, 
-  LayoutDashboardIcon, 
-  SettingsIcon 
+  LogOutIcon, PenToolIcon, LayoutDashboardIcon, 
+  SettingsIcon, ClipboardListIcon 
 } from 'lucide-vue-next';
 
 const route = useRoute();
 const router = useRouter();
-
-const safeNav = (targetPath) => {
-  // 如果点击的就是当前页面，直接返回，避免重复跳转报错
-  if (route.path === targetPath) return;
-
-  router.push({
-    path: targetPath,
-    // 核心：原封不动带上所有的 URL 参数 (data, sign, xftAppCod 等)
-    query: route.query 
-  });
-};
-
 const userInfo = ref({});
 
 const refreshUser = () => {
   try {
+    // 统一使用 localStorage
     const data = localStorage.getItem('user_info');
     userInfo.value = data ? JSON.parse(data) : {};
   } catch {
@@ -112,19 +104,23 @@ const refreshUser = () => {
   }
 };
 
+const safeNav = (targetPath) => {
+  if (route.path === targetPath) return;
+  router.push({ path: targetPath });
+};
+
 onMounted(refreshUser);
 watch(() => route.path, refreshUser);
 
-// --- 权限判定 ---
+// 权限判定逻辑
 const isSuperAdmin = computed(() => {
-  return userInfo.value.dept_name?.includes('公司管理组') || userInfo.value.name === '蔡珏侔';
+  const dept = userInfo.value.dept_name || '';
+  return dept.includes('管理组') || userInfo.value.name === '蔡珏侔';
 });
 
-// 店长、店经理或管理员有权评分
 const canAccessScoring = computed(() => {
-  return isSuperAdmin.value || 
-         userInfo.value.job_title?.includes('店经理') || 
-         userInfo.value.job_title?.includes('店长');
+  const job = userInfo.value.job_title || '';
+  return isSuperAdmin.value || job.includes('店经理') || job.includes('店长');
 });
 
 const handleLogout = () => {
@@ -135,34 +131,3 @@ const handleLogout = () => {
   }
 };
 </script>
-
-<style scoped>
-/* PC端链接基础样式 */
-.nav-link {
-  @apply text-sm font-bold text-gray-400 hover:text-indigo-600 transition-all relative py-1;
-}
-/* PC端激活状态：加粗并显示下划线 */
-.active-pc {
-  @apply text-indigo-600 font-black;
-}
-.active-pc::after {
-  content: '';
-  @apply absolute -bottom-1 left-0 w-full h-0.5 bg-indigo-600 rounded-full;
-}
-
-/* 移动端菜单基础样式 */
-.mobile-nav-link {
-  @apply flex flex-col items-center gap-1 px-4 py-2 text-gray-400 transition-all duration-300;
-}
-.mobile-nav-link span {
-  @apply text-[10px] font-black uppercase tracking-tighter;
-}
-/* 移动端激活状态：变色并放大 */
-.active-mobile {
-  @apply text-indigo-600 scale-110;
-}
-
-/* 页面切换动画 */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-</style>
