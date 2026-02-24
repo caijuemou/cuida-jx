@@ -132,24 +132,25 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '../composables/useSupabase'
-import { 
-  SearchIcon, UserIcon, XIcon, ChevronRightIcon, 
-  ChevronLeftIcon, CheckCircleIcon, LayersIcon, 
-  HistoryIcon, LayoutGridIcon 
+import {
+  SearchIcon, UserIcon, XIcon, ChevronRightIcon,
+  ChevronLeftIcon, CheckCircleIcon, LayersIcon,
+  HistoryIcon, LayoutGridIcon
 } from 'lucide-vue-next'
+import {
+  isSuperAdmin as checkIsSuperAdmin,
+  canAccessScoring as checkCanAccessScoring,
+  isStoreManager,
+  isRestrictedManager,
+  isManagementGroup
+} from '@/utils/permissions'
 
 const router = useRouter()
 const userInfo = ref(JSON.parse(localStorage.getItem('user_info') || '{}'))
 
-// --- 权限逻辑 ---
-const isSuperAdmin = computed(() => {
-  return userInfo.value.dept_name?.includes('管理组') || userInfo.value.name === '蔡珏侔'
-})
-
-const canAccessScoring = computed(() => {
-  const job = userInfo.value.job_title || ''
-  return isSuperAdmin.value || job.includes('店经理') || job.includes('店长')
-})
+// --- 使用统一权限系统 ---
+const isSuperAdmin = computed(() => checkIsSuperAdmin(userInfo.value))
+const canAccessScoring = computed(() => checkCanAccessScoring(userInfo.value))
 
 // --- 状态定义 ---
 const form = ref({ 
@@ -191,9 +192,9 @@ const loadData = async () => {
 
     const myVNumber = userInfo.value.xft_user_id
     const myInfo = staffRes.data?.find(s => s.xft_user_id === myVNumber)
-    const isStoreManager = myInfo?.job_title?.includes('店长') || myInfo?.job_title?.includes('店经理')
+    const isStoreManager = isStoreManager(userInfo.value)
     const myDept = myInfo?.dept_name
-    const isRestrictedManager = isStoreManager && myDept !== '公司管理组'
+    const isRestrictedManager = isRestrictedManager(userInfo.value)
 
     const tree = {}
     staffRes.data?.forEach(s => {
@@ -290,7 +291,7 @@ const handleStaffSearch = async () => {
   if (searchStaffQuery.value.length < 1) return staffSearchResults.value = []
   const me = JSON.parse(localStorage.getItem('user_info') || '{}')
   let query = supabase.from('staff_cache').select('*').eq('is_active', true)
-  if (me.job_title?.includes('店') && me.dept_name !== '公司管理组') {
+  if (isRestrictedManager(me)) {
     query = query.eq('dept_name', me.dept_name)
   }
   const { data } = await query.or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`).limit(10)
@@ -312,10 +313,10 @@ const submitScore = async () => {
     if (!me.xft_user_id) throw new Error("登录信息失效，请重新登录")
 
     let carbonCopyVId = null
-    const isFromManagement = me.dept_name?.includes('公司管理组') || me.dept_name?.includes('后勤组')
+    const isFromManagement = isManagementGroup(me)
     if (isFromManagement && !isManagerMode.value) {
       const staffInDept = staffTree.value[currentRegion.value]?.[currentDistrict.value]?.[form.value.store_name] || []
-      const manager = staffInDept.find(s => s.job_title?.includes('店长') || s.job_title?.includes('店经理'))
+      const manager = staffInDept.find(s => isStoreManager(s))
       if (manager && manager.xft_user_id !== form.value.staff_id) { carbonCopyVId = manager.xft_user_id }
     }
 

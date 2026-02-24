@@ -50,6 +50,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from '../composables/useSupabase';
 import { ShieldCheckIcon, Loader2Icon } from 'lucide-vue-next';
+import { isSuperAdmin } from '@/utils/permissions';
 
 const router = useRouter();
 const isProcessing = ref(false);
@@ -145,12 +146,12 @@ onMounted(async () => {
       window.history.replaceState({}, document.title, window.location.pathname);
 
       // 角色跳转
-      const isSuper = staff.dept_name?.includes('管理组') || staff.name === '蔡珏侔';
-      if (isSuper) {
-        router.push('/admin');
-      } else {
-        router.push('/');
-      }
+            const isSuper = isSuperAdmin(staff);
+            if (isSuper) {
+              router.push('/admin');
+            } else {
+              router.push('/');
+            }
 
     } catch (err) {
       console.error('登录异常:', err);

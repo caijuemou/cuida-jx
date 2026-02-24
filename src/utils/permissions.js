@@ -200,3 +200,50 @@ export const getPermissionInfo = (userInfo) => {
   
   return roleDescriptions[role] || roleDescriptions[UserRoles.UNKNOWN]
 }
+
+/**
+ * 检查是否是管理组（公司管理组、后勤组、人力组、财务组）
+ * @param {Object} userInfo - 用户信息对象
+ * @returns {boolean} 是否是管理组
+ */
+export const isManagementGroup = (userInfo) => {
+  if (!userInfo || !userInfo.dept_name) return false
+  const managementKeywords = ['管理组', '后勤', '人力', '财务']
+  return managementKeywords.some(keyword => userInfo.dept_name.includes(keyword))
+}
+
+/**
+ * 检查是否是门店经理（店长、店经理）
+ * @param {Object} userInfo - 用户信息对象
+ * @returns {boolean} 是否是门店经理
+ */
+export const isStoreManager = (userInfo) => {
+  if (!userInfo || !userInfo.job_title) return false
+  return userInfo.job_title.includes('店长') || userInfo.job_title.includes('店经理')
+}
+
+/**
+ * 检查是否是受限店长（非公司管理组的店长）
+ * @param {Object} userInfo - 用户信息对象
+ * @returns {boolean} 是否是受限店长
+ */
+export const isRestrictedManager = (userInfo) => {
+  return isStoreManager(userInfo) && userInfo.dept_name !== '公司管理组'
+}
+
+/**
+ * 检查用户是否可以查看指定部门的员工数据
+ * @param {Object} userInfo - 用户信息对象
+ * @param {string} deptName - 部门名称
+ * @returns {boolean} 是否可以查看该部门员工数据
+ */
+export const canViewDeptStaff = (userInfo, deptName) => {
+  const role = getUserRole(userInfo)
+  if (role === UserRoles.SUPER_ADMIN) return true
+  if (role === UserRoles.MANAGER) {
+    // 店长只能查看自己门店的员工
+    return userInfo.dept_name === deptName
+  }
+  // 普通员工不能查看其他部门员工
+  return false
+}

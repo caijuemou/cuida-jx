@@ -194,6 +194,7 @@ import {
   LoaderIcon, ExclamationTriangleIcon, ClipboardListIcon
 } from 'lucide-vue-next'
 import * as XLSX from 'xlsx'
+import { isStoreManager } from '@/utils/permissions'
 
 const logs = ref([])
 const filterQuery = ref('')
@@ -328,7 +329,7 @@ const retryPush = async (log) => {
     let ccVId = null
     const staffInDept = staffTree.value[log.store_name] || []
     const manager = staffInDept.find(s =>
-      (s.job_title?.includes('店长') || s.job_title?.includes('店经理')) &&
+      isStoreManager(s) &&
       s.xft_user_id !== log.staff_v_id
     )
     if (manager) ccVId = manager.xft_user_id
