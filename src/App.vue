@@ -100,7 +100,7 @@
     <!-- 权限不足提示 -->
     <div v-if="showPermissionDenied" class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="bg-red-50 border border-red-200 rounded-[2.5rem] p-6 text-center max-w-md w-full">
-        <ExclamationTriangleIcon class="mx-auto h-12 w-12 text-red-400 mb-4" />
+      <AlertTriangleIcon class="mx-auto h-12 w-12 text-red-400 mb-4" />
         <h3 class="text-lg font-black text-red-800 mb-2">权限不足</h3>
         <p class="text-sm text-red-600 mb-4">您没有访问该页面的权限</p>
         <button @click="handlePermissionDeniedClose" class="px-4 py-2 bg-red-600 text-white rounded-xl font-black hover:bg-red-700 transition-all">
@@ -116,7 +116,7 @@ import { ref, watch, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   LogOutIcon, PenToolIcon, LayoutDashboardIcon,
-  SettingsIcon, ClipboardListIcon, ExclamationTriangleIcon
+  SettingsIcon, ClipboardListIcon, AlertTriangleIcon
 } from 'lucide-vue-next';
 import {
   canAccessScoring as checkCanAccessScoring,
