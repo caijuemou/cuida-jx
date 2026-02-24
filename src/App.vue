@@ -90,10 +90,11 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { 
-  LogOutIcon, PenToolIcon, LayoutDashboardIcon, 
-  SettingsIcon, ClipboardListIcon 
+import {
+  LogOutIcon, PenToolIcon, LayoutDashboardIcon,
+  SettingsIcon, ClipboardListIcon
 } from 'lucide-vue-next';
+import { canAccessScoring as checkScoringAccess, isSuperAdmin as checkSuperAdmin } from '@/utils/permissions';
 
 const route = useRoute();
 const router = useRouter();
@@ -140,17 +141,9 @@ watch(() => route.path, (newPath) => {
   refreshUser();
 });
 
-// --- 权限判定 (基于你 LoginView 存入的 staff 结构) ---
-const isSuperAdmin = computed(() => {
-  const dept = userInfo.value.dept_name || '';
-  const name = userInfo.value.name || '';
-  return dept.includes('管理组') || name === '蔡珏侔';
-});
-
-const canAccessScoring = computed(() => {
-  const job = userInfo.value.job_title || '';
-  return isSuperAdmin.value || job.includes('店经理') || job.includes('店长');
-});
+// --- 权限判定 (使用统一的权限工具函数) ---
+const isSuperAdmin = computed(() => checkSuperAdmin(userInfo.value));
+const canAccessScoring = computed(() => checkScoringAccess(userInfo.value));
 
 const handleLogout = () => {
   if (confirm('确定要退出系统吗？')) {
@@ -161,9 +154,8 @@ const handleLogout = () => {
     // 2. 立即重置响应式数据，防止导航栏依然显示原信息
     userInfo.value = {};
     
-    // 3. 强制跳转到登录页
-    // 使用 window.location.href 而不是 router.push 可以彻底刷新应用状态
-    window.location.href = '/login';
+    // 3. 使用 Vue Router 跳转到登录页，保持路由状态一致
+    router.push('/login');
   }
 };
 </script>
