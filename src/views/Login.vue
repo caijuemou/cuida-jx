@@ -50,7 +50,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from '../composables/useSupabase';
 import { ShieldCheckIcon, Loader2Icon } from 'lucide-vue-next';
-import { isSuperAdmin } from '@/utils/permissions';
+import { isSuperAdmin } from '../../utils/permissions';
 
 const router = useRouter();
 const isProcessing = ref(false);

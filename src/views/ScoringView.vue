@@ -143,7 +143,7 @@ import {
   isStoreManager,
   isRestrictedManager,
   isManagementGroup
-} from '@/utils/permissions'
+} from '../../utils/permissions'
 
 const router = useRouter()
 const userInfo = ref(JSON.parse(localStorage.getItem('user_info') || '{}'))

@@ -8,7 +8,7 @@ import {
   isSuperAdmin,
   isValidUser,
   getUserRole
-} from '@/utils/permissions'
+} from '../utils/permissions'
 
 const routes = [
   {

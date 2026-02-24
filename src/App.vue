@@ -127,7 +127,7 @@ import {
   canDeleteRecord as checkCanDeleteRecord,
   getPermissionInfo,
   isValidUser
-} from '@/utils/permissions';
+} from '../utils/permissions';
 
 const route = useRoute();
 const router = useRouter();
