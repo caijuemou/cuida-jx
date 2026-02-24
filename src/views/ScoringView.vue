@@ -192,18 +192,18 @@ const loadData = async () => {
 
     const myVNumber = userInfo.value.xft_user_id
     const myInfo = staffRes.data?.find(s => s.xft_user_id === myVNumber)
-    const isStoreManager = isStoreManager(userInfo.value)
+    const userIsStoreManager = isStoreManager(userInfo.value)
     const myDept = myInfo?.dept_name
-    const isRestrictedManager = isRestrictedManager(userInfo.value)
+    const userIsRestrictedManager = isRestrictedManager(userInfo.value)
 
     const tree = {}
     staffRes.data?.forEach(s => {
-      if (isRestrictedManager && s.dept_name !== myDept) return
+      if (userIsRestrictedManager && s.dept_name !== myDept) return
       const deptInfo = deptRes.data?.find(d => d.name === s.dept_name)
       const pathParts = deptInfo?.name_path?.split('/') || []
       
       let region, district, store
-      if (isRestrictedManager) {
+      if (userIsRestrictedManager) {
         region = '本门店'; district = myDept; store = s.dept_name
       } else if (pathParts.length <= 2) {
         region = '总部/职能部门'; district = s.dept_name; store = s.dept_name
