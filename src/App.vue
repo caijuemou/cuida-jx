@@ -119,12 +119,12 @@ import {
   SettingsIcon, ClipboardListIcon, ExclamationTriangleIcon
 } from 'lucide-vue-next';
 import {
-  canAccessScoring,
-  isSuperAdmin,
-  canViewAllRecords,
-  canViewDeptRecords,
-  canEditRecord,
-  canDeleteRecord,
+  canAccessScoring as checkCanAccessScoring,
+  isSuperAdmin as checkIsSuperAdmin,
+  canViewAllRecords as checkCanViewAllRecords,
+  canViewDeptRecords as checkCanViewDeptRecords,
+  canEditRecord as checkCanEditRecord,
+  canDeleteRecord as checkCanDeleteRecord,
   getPermissionInfo,
   isValidUser
 } from '@/utils/permissions';
@@ -182,19 +182,19 @@ const checkPagePermission = () => {
   // 检查特定页面的权限
   switch (currentPath) {
     case '/admin':
-      if (!isSuperAdmin(userInfo.value)) {
+      if (!checkIsSuperAdmin(userInfo.value)) {
         showPermissionDenied.value = true;
         return false;
       }
       break;
     case '/':
-      if (!canAccessScoring(userInfo.value)) {
+      if (!checkCanAccessScoring(userInfo.value)) {
         router.replace('/history');
         return false;
       }
       break;
     case '/score':
-      if (!canAccessScoring(userInfo.value)) {
+      if (!checkCanAccessScoring(userInfo.value)) {
         router.replace('/history');
         return false;
       }
@@ -220,9 +220,9 @@ watch(() => route.path, (newPath) => {
 });
 
 // --- 权限判定 (使用统一的权限工具函数) ---
-const isSuperAdmin = computed(() => isSuperAdmin(userInfo.value));
-const canAccessScoring = computed(() => canAccessScoring(userInfo.value));
-const canViewAllRecords = computed(() => canViewAllRecords(userInfo.value));
+const isSuperAdmin = computed(() => checkIsSuperAdmin(userInfo.value));
+const canAccessScoring = computed(() => checkCanAccessScoring(userInfo.value));
+const canViewAllRecords = computed(() => checkCanViewAllRecords(userInfo.value));
 const permissionInfo = computed(() => getPermissionInfo(userInfo.value));
 
 const handleLogout = () => {
