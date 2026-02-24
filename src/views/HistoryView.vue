@@ -194,7 +194,7 @@ import {
   LoaderIcon, ExclamationTriangleIcon, ClipboardListIcon
 } from 'lucide-vue-next'
 import * as XLSX from 'xlsx'
-import { isStoreManager } from '../../utils/permissions'
+import { isStoreManager } from '../utils/permissions'
 
 const logs = ref([])
 const filterQuery = ref('')
