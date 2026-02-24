@@ -1,10 +1,12 @@
 <template>
   <div class="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-900">
     
-    <header v-if="!route.meta.hideNav && userInfo.name" 
+    <!-- 顶部导航栏 -->
+    <header v-if="!route.meta.hideNav && userInfo.name"
             class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100">
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         
+        <!-- 左侧Logo区域 -->
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl shadow-inner overflow-hidden border border-slate-100 bg-white">
             <img src="/logo.jpg" alt="Logo" class="w-full h-full object-cover" />
@@ -15,24 +17,30 @@
           </div>
         </div>
 
+        <!-- 导航菜单 -->
         <nav class="hidden md:flex items-center bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50">
+          <!-- 绩效评分（仅限有权限用户） -->
           <router-link v-if="canAccessScoring" to="/" class="pc-nav-link" active-class="pc-active">
             <PenToolIcon :size="16" /> 绩效评分
           </router-link>
           
+          <!-- 考核大屏（所有用户） -->
           <router-link to="/dashboard" class="pc-nav-link" active-class="pc-active">
             <LayoutDashboardIcon :size="16" /> 考核大屏
           </router-link>
 
+          <!-- 评分历史（仅限无评分权限用户） -->
           <router-link v-if="!canAccessScoring" to="/history" class="pc-nav-link" active-class="pc-active">
             <ClipboardListIcon :size="16" /> 评分历史
           </router-link>
 
+          <!-- 系统管理（仅限超级管理员） -->
           <router-link v-if="isSuperAdmin" to="/admin" class="pc-nav-link" active-class="pc-active">
             <SettingsIcon :size="16" /> 系统管理
           </router-link>
         </nav>
 
+        <!-- 用户信息和退出按钮 -->
         <div class="flex items-center gap-4 border-l pl-6 border-slate-100">
           <div class="text-right hidden sm:block">
             <div class="text-xs font-black text-slate-900 leading-none">{{ userInfo.name }}</div>
@@ -47,16 +55,17 @@
       </div>
     </header>
 
-    <nav v-if="!route.meta.hideNav && userInfo.name" 
+    <!-- 移动端底部导航 -->
+    <nav v-if="!route.meta.hideNav && userInfo.name"
          class="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-4 w-full max-w-fit">
       <div class="bg-slate-900/90 backdrop-blur-2xl p-2 rounded-[2.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/10 flex items-center gap-1">
         
+        <!-- 评分（仅限有权限用户） -->
         <router-link v-if="canAccessScoring" to="/" class="dock-link" active-class="dock-active">
           <PenToolIcon :size="20" />
         </router-link>
 
-        <div v-if="canAccessScoring" class="dock-divider"></div>
-
+        <!-- 评分历史（仅限无评分权限用户） -->
         <template v-if="!canAccessScoring">
           <router-link to="/history" class="dock-link" active-class="dock-active">
             <ClipboardListIcon :size="20" />
@@ -64,10 +73,12 @@
           <div class="dock-divider"></div>
         </template>
 
+        <!-- 考核大屏（所有用户） -->
         <router-link to="/dashboard" class="dock-link" active-class="dock-active">
           <LayoutDashboardIcon :size="20" />
         </router-link>
 
+        <!-- 系统管理（仅限超级管理员） -->
         <template v-if="isSuperAdmin">
           <div class="dock-divider"></div>
           <router-link to="/admin" class="dock-link" active-class="dock-active">
@@ -77,6 +88,7 @@
       </div>
     </nav>
 
+    <!-- 主内容区域 -->
     <main :class="{ 'max-w-7xl mx-auto pt-6 px-4 pb-32 md:pb-12': !route.meta.hideNav }">
       <router-view v-slot="{ Component }">
         <transition name="page-fade" mode="out-in">
@@ -84,6 +96,18 @@
         </transition>
       </router-view>
     </main>
+
+    <!-- 权限不足提示 -->
+    <div v-if="showPermissionDenied" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="bg-red-50 border border-red-200 rounded-[2.5rem] p-6 text-center max-w-md w-full">
+        <ExclamationTriangleIcon class="mx-auto h-12 w-12 text-red-400 mb-4" />
+        <h3 class="text-lg font-black text-red-800 mb-2">权限不足</h3>
+        <p class="text-sm text-red-600 mb-4">您没有访问该页面的权限</p>
+        <button @click="handlePermissionDeniedClose" class="px-4 py-2 bg-red-600 text-white rounded-xl font-black hover:bg-red-700 transition-all">
+          返回
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -92,13 +116,25 @@ import { ref, watch, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   LogOutIcon, PenToolIcon, LayoutDashboardIcon,
-  SettingsIcon, ClipboardListIcon
+  SettingsIcon, ClipboardListIcon, ExclamationTriangleIcon
 } from 'lucide-vue-next';
-import { canAccessScoring as checkScoringAccess, isSuperAdmin as checkSuperAdmin } from '@/utils/permissions';
+import {
+  canAccessScoring,
+  isSuperAdmin,
+  canViewAllRecords,
+  canViewDeptRecords,
+  canEditRecord,
+  canDeleteRecord,
+  getPermissionInfo,
+  isValidUser
+} from '@/utils/permissions';
 
 const route = useRoute();
 const router = useRouter();
 const userInfo = ref({});
+
+// 权限不足提示
+const showPermissionDenied = ref(false);
 
 // 刷新用户信息逻辑
 const refreshUser = () => {
@@ -133,17 +169,61 @@ const refreshUser = () => {
   }
 };
 
-onMounted(refreshUser);
+// 检查页面权限
+const checkPagePermission = () => {
+  const currentPath = route.path.toLowerCase();
+  
+  // 检查是否需要权限
+  if (route.meta.requiresAuth && !isValidUser(userInfo.value)) {
+    router.replace('/login');
+    return false;
+  }
+  
+  // 检查特定页面的权限
+  switch (currentPath) {
+    case '/admin':
+      if (!isSuperAdmin(userInfo.value)) {
+        showPermissionDenied.value = true;
+        return false;
+      }
+      break;
+    case '/':
+      if (!canAccessScoring(userInfo.value)) {
+        router.replace('/history');
+        return false;
+      }
+      break;
+    case '/score':
+      if (!canAccessScoring(userInfo.value)) {
+        router.replace('/history');
+        return false;
+      }
+      break;
+    default:
+      // 其他页面默认允许访问
+      break;
+  }
+  
+  return true;
+};
+
+onMounted(() => {
+  refreshUser();
+  checkPagePermission();
+});
 
 // 监听路由变化
 watch(() => route.path, (newPath) => {
   // 每次切页面都校准一次身份，防止手动清除 storage 绕过
   refreshUser();
+  checkPagePermission();
 });
 
 // --- 权限判定 (使用统一的权限工具函数) ---
-const isSuperAdmin = computed(() => checkSuperAdmin(userInfo.value));
-const canAccessScoring = computed(() => checkScoringAccess(userInfo.value));
+const isSuperAdmin = computed(() => isSuperAdmin(userInfo.value));
+const canAccessScoring = computed(() => canAccessScoring(userInfo.value));
+const canViewAllRecords = computed(() => canViewAllRecords(userInfo.value));
+const permissionInfo = computed(() => getPermissionInfo(userInfo.value));
 
 const handleLogout = () => {
   if (confirm('确定要退出系统吗？')) {
@@ -157,6 +237,11 @@ const handleLogout = () => {
     // 3. 使用 Vue Router 跳转到登录页，保持路由状态一致
     router.push('/login');
   }
+};
+
+const handlePermissionDeniedClose = () => {
+  showPermissionDenied.value = false;
+  router.go(-1);
 };
 </script>
 
@@ -207,6 +292,11 @@ const handleLogout = () => {
   height: 24px;
   background-color: rgba(255, 255, 255, 0.1);
   margin: 0 4px;
+}
+
+/* --- 权限不足提示样式 --- */
+.permission-denied {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-4;
 }
 
 /* --- 页面过渡动画 --- */
