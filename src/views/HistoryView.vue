@@ -54,7 +54,7 @@
 
     <!-- 错误提示 -->
     <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-[2rem] p-6 text-center">
-      <ExclamationTriangleIcon class="mx-auto h-12 w-12 text-red-400 mb-4" />
+      <AlertTriangleIcon class="mx-auto h-12 w-12 text-red-400 mb-4" />
       <h3 class="text-lg font-black text-red-800 mb-2">加载失败</h3>
       <p class="text-sm text-red-600 mb-4">{{ error }}</p>
       <button @click="loadLogs" class="px-4 py-2 bg-red-600 text-white rounded-xl font-black hover:bg-red-700 transition-all">
@@ -191,7 +191,7 @@ import { supabase } from '../composables/useSupabase'
 import {
   SearchIcon, Edit3Icon, XIcon, DownloadIcon,
   CheckCircleIcon, AlertCircleIcon, RotateCwIcon,
-  LoaderIcon, ExclamationTriangleIcon, ClipboardListIcon
+  LoaderIcon, AlertTriangleIcon, ClipboardListIcon
 } from 'lucide-vue-next'
 import * as XLSX from 'xlsx'
 import { isStoreManager } from '../utils/permissions'
