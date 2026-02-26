@@ -81,6 +81,9 @@ router.beforeEach((to, from, next) => {
     userInfo = null;
   }
 
+  console.log('[Router Guard] 读取到的用户信息:', userInfo);
+  console.log('[Router Guard] isValidUser 结果:', isValidUser(userInfo));
+  
   const isAuthenticated = isValidUser(userInfo);
   const urlParams = new URLSearchParams(window.location.search);
   const hasSsoData = urlParams.has('data'); // 检查 URL 是否带薪福通数据
