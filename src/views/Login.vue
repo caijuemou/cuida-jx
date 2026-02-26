@@ -145,6 +145,7 @@ onMounted(async () => {
       }
       
       // 存储并跳转
+      console.log('存储的用户信息:', staff);
       localStorage.setItem('user_info', JSON.stringify(staff));
       
       // 清理 URL
