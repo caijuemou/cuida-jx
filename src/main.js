@@ -21,9 +21,13 @@ if (cmbTrackLib && typeof cmbTrackLib.init === 'function') {
 
     const urlParams = new URLSearchParams(window.location.search);
     const data = urlParams.get('data');
+    console.log('[main.js] 检测到 data 参数:', data ? '有' : '无');
     if (data) {
       const theRequestData = encodeURIComponent(data.replace(/''/g, '+'));
+      console.log('[main.js] 调用 cmbTrackLib.aliasID');
       cmbTrackLib.aliasID(theRequestData);
+    } else {
+      console.log('[main.js] 所有 URL 参数:', Object.fromEntries(urlParams));
     }
     
     // 挂载到全局
