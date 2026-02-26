@@ -208,7 +208,7 @@ const staffTree = ref({})
 // 获取用户信息
 const me = JSON.parse(localStorage.getItem('user_info') || '{}')
 const myVNumber = me.xft_user_id
-const myDept = me.dept_name
+const myDept = String(me.dept_name) || '' // 确保是字符串
 const myJob = me.job_title || ''
 
 // --- 权限/搜索提示 ---
