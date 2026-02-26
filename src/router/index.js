@@ -102,25 +102,13 @@ router.beforeEach((to, from, next) => {
 
   // 情况 A: 未登录
   if (!isAuthenticated) {
-    // 如果有 SSO 数据，需要重定向到登录页进行解析
-    if (hasSsoData) {
-      if (targetPath === '/login') {
-        // 已经在登录页，放行让 Login.vue 处理
-        console.log('[Router Guard] 检测到 SSO 数据且已在登录页，放行');
-        return next();
-      } else {
-        // 不在登录页，重定向到登录页并保留所有查询参数
-        console.log('[Router Guard] 检测到 SSO 数据，重定向到登录页进行解析');
-        return next({ path: '/login', query: to.query });
-      }
-    }
-    // 没有 SSO 数据，且不在登录页，强制去登录页
-    if (targetPath !== '/login') {
+    // 如果不在登录页，且 URL 也没带 SSO 数据，强制去登录页
+    if (targetPath !== '/login' && !hasSsoData) {
       console.log('[Router Guard] 未登录，重定向到登录页');
       return next('/login');
     }
-    // 在登录页且没有 SSO 数据，放行
-    console.log('[Router Guard] 未登录但访问登录页，放行');
+    // 如果去的是登录页，或者带了 SSO 数据（准备解析），放行
+    console.log('[Router Guard] 未登录但访问登录页或有SSO数据，放行');
     return next();
   }
 
