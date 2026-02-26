@@ -89,9 +89,9 @@ const handleXFTLogin = () => {
     authUrl += `&enterprise_id=${ENTERPRISE_ID}`;
   }
   
-  // 如果勾选了强制重新验证，添加 prompt=login 参数
+  // 如果勾选了强制重新验证，添加 max_age=0 参数（强制重新认证）
   if (forceReauth.value) {
-    authUrl += '&prompt=login';
+    authUrl += '&max_age=0';
   }
   
   window.location.href = authUrl;
