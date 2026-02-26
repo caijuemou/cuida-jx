@@ -55,6 +55,9 @@ import { isSuperAdmin } from '../utils/permissions';
 const router = useRouter();
 const isProcessing = ref(false);
 
+// 调试：页面加载时立即记录
+console.log('Login.vue 组件加载', window.location.href);
+
 // 1. 发起登录
 const handleXFTLogin = () => {
   const XFT_DOMAIN = "https://xft.cmbchina.com";
@@ -76,12 +79,15 @@ const handleXFTLogin = () => {
 
 // 2. 处理回调
 onMounted(async () => {
+  console.log('Login.vue onMounted 执行');
   const params = new URLSearchParams(window.location.search);
   const data = params.get('data');
+  console.log('URL 参数 data:', data);
 
   if (data) {
     isProcessing.value = true;
     try {
+      console.log('开始处理 SSO 数据');
       // 1. 解码
       const rawData = window.atob(data.replace(/-/g, '+').replace(/_/g, '/'));
       const uint8Array = new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
