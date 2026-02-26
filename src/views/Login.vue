@@ -81,6 +81,7 @@ const handleXFTLogin = () => {
 onMounted(async () => {
   console.log('Login.vue onMounted 执行');
   const params = new URLSearchParams(window.location.search);
+  console.log('所有 URL 参数:', Object.fromEntries(params));
   const data = params.get('data');
   console.log('URL 参数 data:', data);
 
