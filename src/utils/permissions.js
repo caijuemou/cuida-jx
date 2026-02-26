@@ -156,7 +156,7 @@ export const getAccessibleItemTypes = (userInfo) => {
  * @returns {boolean} 是否有效
  */
 export const isValidUser = (userInfo) => {
-  return !!(userInfo && userInfo.name && userInfo.xft_user_id)
+  return !!(userInfo && userInfo.name && (userInfo.xft_user_id || userInfo.staff_seq))
 }
 
 /**
