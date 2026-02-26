@@ -80,7 +80,10 @@ const handleXFTLogin = () => {
 // 2. 处理回调
 onMounted(async () => {
   console.log('Login.vue onMounted 执行');
+  console.log('完整 URL:', window.location.href);
+  console.log('window.location.search:', window.location.search);
   const params = new URLSearchParams(window.location.search);
+  console.log('URLSearchParams 实例:', params);
   console.log('所有 URL 参数:', Object.fromEntries(params));
   const data = params.get('data');
   console.log('URL 参数 data:', data);
