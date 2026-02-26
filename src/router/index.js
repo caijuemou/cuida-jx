@@ -109,9 +109,9 @@ router.beforeEach((to, from, next) => {
         console.log('[Router Guard] 检测到 SSO 数据且已在登录页，放行');
         return next();
       } else {
-        // 不在登录页，重定向到登录页
+        // 不在登录页，重定向到登录页并保留所有查询参数
         console.log('[Router Guard] 检测到 SSO 数据，重定向到登录页进行解析');
-        return next('/login');
+        return next({ path: '/login', query: to.query });
       }
     }
     // 没有 SSO 数据，且不在登录页，强制去登录页
