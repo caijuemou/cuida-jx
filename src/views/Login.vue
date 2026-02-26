@@ -28,9 +28,22 @@
             <div class="w-3 h-3 bg-red-600 rounded-sm"></div>
           </div>
           薪福通一键登录
-        </button>
+       </button>
 
-        <div class="mt-10 pt-8 border-t border-gray-50 flex flex-col items-center gap-2">
+       <!-- 强制重新验证选项 -->
+       <div class="mt-4 flex items-center justify-center gap-2">
+         <input
+           v-model="forceReauth"
+           type="checkbox"
+           id="forceReauth"
+           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+         />
+         <label for="forceReauth" class="text-xs text-gray-500 font-black cursor-pointer">
+           强制重新验证（退出后需重新扫码）
+         </label>
+       </div>
+
+       <div class="mt-10 pt-8 border-t border-gray-50 flex flex-col items-center gap-2">
           <span class="text-[10px] text-gray-300 font-black uppercase tracking-[0.2em] leading-none">
             Digital Identity Service
           </span>
@@ -54,6 +67,7 @@ import { isSuperAdmin } from '../utils/permissions';
 
 const router = useRouter();
 const isProcessing = ref(false);
+const forceReauth = ref(false); // 强制重新验证选项
 
 // 调试：页面加载时立即记录
 console.log('Login.vue 组件加载', window.location.href);
@@ -74,6 +88,12 @@ const handleXFTLogin = () => {
   if (ENTERPRISE_ID) {
     authUrl += `&enterprise_id=${ENTERPRISE_ID}`;
   }
+  
+  // 如果勾选了强制重新验证，添加 prompt=login 参数
+  if (forceReauth.value) {
+    authUrl += '&prompt=login';
+  }
+  
   window.location.href = authUrl;
 };
 
