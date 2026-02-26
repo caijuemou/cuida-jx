@@ -82,11 +82,20 @@ onMounted(async () => {
   console.log('Login.vue onMounted 执行');
   console.log('完整 URL:', window.location.href);
   console.log('window.location.search:', window.location.search);
-  const params = new URLSearchParams(window.location.search);
-  console.log('URLSearchParams 实例:', params);
-  console.log('所有 URL 参数:', Object.fromEntries(params));
-  const data = params.get('data');
-  console.log('URL 参数 data:', data);
+  
+  // 优先从 sessionStorage 读取 data（因为 main.js 可能修改了 URL）
+  let data = sessionStorage.getItem('sso_data');
+  if (data) {
+    console.log('从 sessionStorage 读取到 data 参数');
+    sessionStorage.removeItem('sso_data'); // 使用后清理
+  } else {
+    // 尝试从 URL 读取
+    const params = new URLSearchParams(window.location.search);
+    console.log('URLSearchParams 实例:', params);
+    console.log('所有 URL 参数:', Object.fromEntries(params));
+    data = params.get('data');
+    console.log('URL 参数 data:', data);
+  }
 
   if (data) {
     isProcessing.value = true;

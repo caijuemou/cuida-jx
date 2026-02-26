@@ -23,6 +23,8 @@ if (cmbTrackLib && typeof cmbTrackLib.init === 'function') {
     const data = urlParams.get('data');
     console.log('[main.js] 检测到 data 参数:', data ? '有' : '无');
     if (data) {
+      // 保存 data 到 sessionStorage，供 Login.vue 使用
+      sessionStorage.setItem('sso_data', data);
       const theRequestData = encodeURIComponent(data.replace(/''/g, '+'));
       console.log('[main.js] 调用 cmbTrackLib.aliasID');
       cmbTrackLib.aliasID(theRequestData);
