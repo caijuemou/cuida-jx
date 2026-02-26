@@ -227,31 +227,20 @@ const permissionInfo = computed(() => getPermissionInfo(userInfo.value));
 
 const handleLogout = () => {
   if (confirm('确定要退出系统吗？')) {
-    // 1. 调用薪福通登出 API（使用 no-cors 模式）
-    try {
-      fetch('https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/post/login/resource/config/value', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Xft-Menu-Code': 'czt_default'
-        },
-        body: JSON.stringify({ scene: 'DE_BRANDING', channel: 'WB' }),
-        mode: 'no-cors', // 不发送 CORS 预检，但无法读取响应
-        credentials: 'include'
-      });
-    } catch (e) {
-      console.log('薪福通登出失败:', e);
-    }
-    
-    // 2. 清除所有相关缓存
+    // 1. 清除所有相关缓存
     localStorage.clear();
     sessionStorage.clear(); // 建议同时也清理下 session
     
-    // 3. 立即重置响应式数据，防止导航栏依然显示原信息
+    // 2. 立即重置响应式数据，防止导航栏依然显示原信息
     userInfo.value = {};
     
-    // 4. 使用 Vue Router 跳转到登录页，保持路由状态一致
+    // 3. 使用 Vue Router 跳转到登录页，保持路由状态一致
     router.push('/login');
+    
+    // 4. 提示用户手动登出薪福通（由于跨域限制，无法自动登出）
+    setTimeout(() => {
+      alert('为了安全起见，请同时在薪福通应用或网页中退出您的账号。');
+    }, 500);
   }
 };
 
