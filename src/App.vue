@@ -227,19 +227,29 @@ const permissionInfo = computed(() => getPermissionInfo(userInfo.value));
 
 const handleLogout = () => {
   if (confirm('确定要退出系统吗？')) {
-    // 1. 调用薪福通登出 API
+    // 1. 调用薪福通登出 API（使用表单提交避免 CORS）
     try {
-      fetch('https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/post/login/resource/config/value', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Xft-Menu-Code': 'czt_default'
-        },
-        body: JSON.stringify({ scene: 'DE_BRANDING', channel: 'WB' }),
-        credentials: 'include' // 包含 cookie
-      }).catch(() => {
-        console.log('薪福通登出 API 调用失败，可能是跨域限制');
-      });
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = 'https://xft.cmbchina.com/xft-gateway/xft-login-new/xwapi/post/login/resource/config/value';
+      form.target = '_blank'; // 在新窗口提交，避免影响当前页面
+      
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'data';
+      input.value = JSON.stringify({ scene: 'DE_BRANDING', channel: 'WB' });
+      form.appendChild(input);
+      
+      // 添加 Xft-Menu-Code 头（通过隐藏输入，如果后端需要）
+      const menuCode = document.createElement('input');
+      menuCode.type = 'hidden';
+      menuCode.name = 'Xft-Menu-Code';
+      menuCode.value = 'czt_default';
+      form.appendChild(menuCode);
+      
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
     } catch (e) {
       console.log('薪福通登出失败:', e);
     }
