@@ -139,7 +139,12 @@ onMounted(async () => {
         console.warn('警告：该账号在系统中处于非激活状态');
       }
 
-      // 5. 存储并跳转
+      // 5. 确保用户标识字段存在 (兼容 staff_seq)
+      if (staff && staff.staff_seq && !staff.xft_user_id) {
+        staff.xft_user_id = staff.staff_seq;
+      }
+      
+      // 存储并跳转
       localStorage.setItem('user_info', JSON.stringify(staff));
       
       // 清理 URL
