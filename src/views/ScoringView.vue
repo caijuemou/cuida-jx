@@ -1,9 +1,9 @@
 <template>
   <div class="max-w-2xl mx-auto pb-32 px-4 space-y-8 text-base">
     <div v-if="canAccessScoring" class="flex justify-end">
-      <router-link to="/history" class="flex items-center gap-2 px-4 py-2 bg-blue-100/80 rounded-2xl border border-slate-100 shadow-sm text-xs font-black text-slate-500 hover:text-indigo-600 transition-all">
+      <button @click="() => router.push('/history')" class="flex items-center gap-2 px-4 py-2 bg-blue-100/80 rounded-2xl border border-slate-100 shadow-sm text-xs font-black text-slate-500 hover:text-indigo-600 transition-all">
         <HistoryIcon :size="16" />查看历史记录
-      </router-link>
+      </button>
     </div>
 
     <section class="bg-white p-7 rounded-[2rem] shadow-sm border border-gray-100">
