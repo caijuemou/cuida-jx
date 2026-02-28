@@ -20,24 +20,24 @@
         <!-- 导航菜单 -->
         <nav class="hidden md:flex items-center bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50">
           <!-- 绩效评分（仅限有权限用户） -->
-          <router-link v-if="canAccessScoring" to="/" class="pc-nav-link" active-class="pc-active">
+          <button v-if="canAccessScoring" @click="navigateTo('/')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/' }">
             <PenToolIcon :size="16" /> 绩效评分
-          </router-link>
+          </button>
           
           <!-- 考核大屏（所有用户） -->
-          <router-link to="/dashboard" class="pc-nav-link" active-class="pc-active">
+          <button @click="navigateTo('/dashboard')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/dashboard' }">
             <LayoutDashboardIcon :size="16" /> 考核大屏
-          </router-link>
+          </button>
 
           <!-- 评分历史（仅限无评分权限用户） -->
-          <router-link v-if="!canAccessScoring" to="/history" class="pc-nav-link" active-class="pc-active">
+          <button v-if="!canAccessScoring" @click="navigateTo('/history')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/history' }">
             <ClipboardListIcon :size="16" /> 评分历史
-          </router-link>
+          </button>
 
           <!-- 系统管理（仅限超级管理员） -->
-          <router-link v-if="isSuperAdmin" to="/admin" class="pc-nav-link" active-class="pc-active">
+          <button v-if="isSuperAdmin" @click="navigateTo('/admin')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/admin' }">
             <SettingsIcon :size="16" /> 系统管理
-          </router-link>
+          </button>
         </nav>
 
         <!-- 用户信息和退出按钮 -->
@@ -61,29 +61,29 @@
       <div class="bg-slate-900/90 backdrop-blur-2xl p-2 rounded-[2.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/10 flex items-center gap-1">
         
         <!-- 评分（仅限有权限用户） -->
-        <router-link v-if="canAccessScoring" to="/" class="dock-link" active-class="dock-active">
+        <button v-if="canAccessScoring" @click="navigateTo('/')" class="dock-link" :class="{ 'dock-active': $route.path === '/' }">
           <PenToolIcon :size="20" />
-        </router-link>
+        </button>
 
         <!-- 评分历史（仅限无评分权限用户） -->
         <template v-if="!canAccessScoring">
-          <router-link to="/history" class="dock-link" active-class="dock-active">
+          <button @click="navigateTo('/history')" class="dock-link" :class="{ 'dock-active': $route.path === '/history' }">
             <ClipboardListIcon :size="20" />
-          </router-link>
+          </button>
           <div class="dock-divider"></div>
         </template>
 
         <!-- 考核大屏（所有用户） -->
-        <router-link to="/dashboard" class="dock-link" active-class="dock-active">
+        <button @click="navigateTo('/dashboard')" class="dock-link" :class="{ 'dock-active': $route.path === '/dashboard' }">
           <LayoutDashboardIcon :size="20" />
-        </router-link>
+        </button>
 
         <!-- 系统管理（仅限超级管理员） -->
         <template v-if="isSuperAdmin">
           <div class="dock-divider"></div>
-          <router-link to="/admin" class="dock-link" active-class="dock-active">
+          <button @click="navigateTo('/admin')" class="dock-link" :class="{ 'dock-active': $route.path === '/admin' }">
             <SettingsIcon :size="20" />
-          </router-link>
+          </button>
         </template>
       </div>
     </nav>
@@ -135,6 +135,11 @@ const userInfo = ref({});
 
 // 权限不足提示
 const showPermissionDenied = ref(false);
+
+// 编程式导航方法（避免被薪福通识别为外部链接）
+const navigateTo = (path) => {
+  router.push(path);
+};
 
 // 刷新用户信息逻辑
 const refreshUser = () => {
