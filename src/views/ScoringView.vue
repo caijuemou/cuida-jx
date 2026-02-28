@@ -320,6 +320,60 @@ const submitScore = async () => {
       if (manager && manager.xft_user_id !== form.value.staff_id) { carbonCopyVId = manager.xft_user_id }
     }
 
+    // 特殊通知逻辑：根据门店和发起人判断是否需要额外通知郑雅云或林雅绮
+    let extraNotifyVId = null
+    const specialStoresGroup1 = ['湖里店', '湾悦城店', '宝龙一城店', '金谷广场店', '大悦城店', '万科云城店']
+    const specialStoresIdsGroup1 = ['980225620', '980011618', '980125721', '980110605', '980432022', '1009566491']
+    const specialStoresGroup2 = ['禾祥西店', '厦大店', '筼筜天虹店', '中华城店', 'SM三期', '思北店', '金榜店']
+    const specialStoresIdsGroup2 = ['980434019', '980180650', '980000782', '980402024', '980214711', '998824851', '1003243893']
+
+    const isZhengYaYun = me.name === '郑雅云'
+    const isLinYaQi = me.name === '林雅绮'
+
+    // 如果是管理组发起，且不是郑雅云或林雅绮本人发起
+    if (isFromManagement && !isZhengYaYun && !isLinYaQi) {
+      const targetStore = form.value.store_name
+      // 获取当前门店的 xft_user_id 列表，用于匹配
+      const staffInCurrentStore = staffTree.value[currentRegion.value]?.[currentDistrict.value]?.[targetStore] || []
+      
+      // 检查是否属于第一组特殊门店（通知郑雅云）
+      if (specialStoresGroup1.includes(targetStore) ||
+          staffInCurrentStore.some(s => specialStoresIdsGroup1.includes(s.xft_user_id))) {
+        // 在整个系统中查找郑雅云
+        for (const region of Object.values(staffTree.value)) {
+          for (const district of Object.values(region)) {
+            for (const store of Object.values(district)) {
+              const zheng = store.find(s => s.name === '郑雅云')
+              if (zheng) {
+                extraNotifyVId = zheng.xft_user_id
+                break
+              }
+            }
+            if (extraNotifyVId) break
+          }
+          if (extraNotifyVId) break
+        }
+      }
+      // 检查是否属于第二组特殊门店（通知林雅绮）
+      else if (specialStoresGroup2.includes(targetStore) ||
+               staffInCurrentStore.some(s => specialStoresIdsGroup2.includes(s.xft_user_id))) {
+        // 在整个系统中查找林雅绮
+        for (const region of Object.values(staffTree.value)) {
+          for (const district of Object.values(region)) {
+            for (const store of Object.values(district)) {
+              const lin = store.find(s => s.name === '林雅绮')
+              if (lin) {
+                extraNotifyVId = lin.xft_user_id
+                break
+              }
+            }
+            if (extraNotifyVId) break
+          }
+          if (extraNotifyVId) break
+        }
+      }
+    }
+
     const record = {
       starter_id: me.xft_user_id,
       starter_name: me.name,
@@ -337,15 +391,34 @@ const submitScore = async () => {
     const { data: dbData, error: dbError } = await supabase.from('perf_records').insert(record).select().single()
     if (dbError) throw new Error("保存失败: " + dbError.message)
 
+    // 发送通知给被考核人和店经理
     const { error: invokeError } = await supabase.functions.invoke('xft-send-msg', {
-      body: { 
-        target_user_id: form.value.staff_id, 
+      body: {
+        target_user_id: form.value.staff_id,
         target_name: form.value.staff_name,
         item_name: form.value.item_name,
         score: form.value.score,
-        manager_v_id: carbonCopyVId 
-      } 
+        manager_v_id: carbonCopyVId
+      }
     })
+
+    // 如果有额外通知人，再发送一次通知
+    if (extraNotifyVId) {
+      const { error: extraError } = await supabase.functions.invoke('xft-send-msg', {
+        body: {
+          target_user_id: extraNotifyVId,
+          target_name: isZhengYaYun ? '郑雅云' : '林雅绮',
+          item_name: form.value.item_name,
+          score: form.value.score,
+          manager_v_id: null,
+          extra_info: `来自门店: ${form.value.store_name}, 发起人: ${me.name}`
+        }
+      })
+      
+      if (extraError) {
+        console.warn("额外通知发送失败:", extraError.message)
+      }
+    }
 
     const finalStatus = !invokeError ? 'sent' : 'failed'
     await supabase.from('perf_records').update({ sync_status: finalStatus }).eq('id', dbData.id)
@@ -355,6 +428,10 @@ const submitScore = async () => {
     } else {
       let msg = `🚀 提交成功！已通知【${form.value.staff_name}】。`
       if (carbonCopyVId) msg += " 同时已抄送店经理。"
+      if (extraNotifyVId) {
+        const extraName = isZhengYaYun ? '郑雅云' : '林雅绮'
+        msg += ` 额外通知【${extraName}】。`
+      }
       alert(msg)
     }
 
