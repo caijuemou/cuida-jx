@@ -302,25 +302,36 @@ const submitScore = async () => {
       }
     })
 
-    if (invokeError) throw new Error("薪福通通讯失败: " + invokeError.message)
-
+    if (invokeError) {
+       await supabase.from('perf_records').update({ sync_status: 'failed' }).eq('id', dbData.id)
+       throw new Error("薪福通通讯失败: " + invokeError.message)
+    }
     // 3. 处理薪福通返回结果
     if (xftResult.xftResponse?.returnCode === 'SUC0000') {
-      const procId = xftResult.xftResponse.body?.procInstId || 'SENT_NO_ID'
+      // 提取 ID (兼容处理不同可能的路径)
+      const procId = xftResult.xftResponse.body?.procInstId || xftResult.xftResponse.procInstId
       
-      // 更新本地记录：状态转为 sent，并存入流程 ID
-      const { error: updateError } = await supabase.from('perf_records')
+      if (!procId) {
+        console.warn("薪福通未返回 procInstId，请检查接口返回结构", xftResult)
+      }
+
+      // 【核心改动】执行更新并等待结果
+      const { error: updateError } = await supabase
+        .from('perf_records')
         .update({ 
           sync_status: 'sent',
-          proc_inst_id: procId,
-          description: record.description
+          proc_inst_id: procId // 确保数据库字段名完全一致
         })
         .eq('id', dbData.id)
+
+      if (updateError) throw new Error("ID 回写数据库失败: " + updateError.message)
 
       alert(`✅ 提交成功！\n薪福通审批流程ID: ${procId}`)
       clearStaff()
     } else {
-      throw new Error(xftResult.xftResponse?.errorMsg || "同步异常")
+      const errorMsg = xftResult.xftResponse?.errorMsg || "同步异常"
+      await supabase.from('perf_records').update({ sync_status: 'failed' }).eq('id', dbData.id)
+      throw new Error(errorMsg)
     }
 
   } catch (err) {
