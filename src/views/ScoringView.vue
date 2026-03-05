@@ -85,10 +85,17 @@
     </section>
 
     <section class="bg-white p-7 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
-      <label class="text-xs font-black text-slate-500 uppercase tracking-widest">3. 填写具体描述 (可选)</label>
+      <label class="text-xs font-black text-purple-700 uppercase tracking-widest flex items-center gap-2">
+        <Edit3Icon :size="14" /> 3. 填写具体描述 (可选)
+      </label>
+      
       <div class="relative group">
-        <textarea v-model="form.description" rows="3" placeholder="请详细描述违规情况或加分事宜..." 
-          class="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-indigo-100 focus:bg-white focus:ring-0 text-sm font-medium transition-all resize-none"></textarea>
+        <textarea 
+          v-model="form.description" 
+          rows="3" 
+          placeholder="请详细描述违规情况或加分事宜..." 
+          class="w-full p-4 bg-gray-50 rounded-2xl border-2 border-transparent focus:border-purple-100 focus:bg-white focus:ring-0 text-base font-medium transition-all resize-none placeholder:text-gray-400 placeholder:text-base placeholder:font-medium"
+        ></textarea>
       </div>
     </section>
 
@@ -291,7 +298,8 @@ const submitScore = async () => {
         staffId: form.value.staff_id,
         score: form.value.score,
         // 这里拼接后的字符串将对应薪福通表单的“具体描述”字段 (4jtqb8iyg325)
-        desc: `【${form.value.item_name}】 ${form.value.description || ''}`,
+        desc: `【${form.value.category_name}】${form.value.item_name} (标准分:${standardScore.value}分)`,
+        detailReason: form.value.description || '无具体描述',
         starterId: me.xft_user_id
       }
     })
