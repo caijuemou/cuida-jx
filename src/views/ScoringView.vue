@@ -281,23 +281,21 @@ const submitScore = async () => {
       category_label: form.value.category_name,
       score_value: String(form.value.score), 
       score_impact: String(standardScore.value),
-      // 存储时合并考核项和具体描述
       description: `考核项: ${form.value.item_name}`,
       detail_reason: form.value.description,
       record_date: form.value.date,
-      sync_status: 'pending'
+      sync_status: 'pending'',
+      proc_inst_id: null
     }
 
     const { data: dbData, error: dbError } = await supabase.from('perf_records').insert(record).select().single()
     if (dbError) throw new Error("保存失败: " + dbError.message)
 
     // 2. 调用 Edge Function 发起流程
-    // 关键改动：将 form.description 拼接到传递给接口的 desc 中
     const { data: xftResult, error: invokeError } = await supabase.functions.invoke('xft-start-flow', {
       body: {
         staffId: form.value.staff_id,
         score: form.value.score,
-        // 这里拼接后的字符串将对应薪福通表单的“具体描述”字段 (4jtqb8iyg325)
         desc: `【${form.value.category_name}】${form.value.item_name} (标准分:${standardScore.value}分)`,
         detailReason: form.value.description || '无具体描述',
         starterId: me.xft_user_id
@@ -308,14 +306,18 @@ const submitScore = async () => {
 
     // 3. 处理薪福通返回结果
     if (xftResult.xftResponse?.returnCode === 'SUC0000') {
-      await supabase.from('perf_records')
+      const procId = xftResult.xftResponse.body?.procInstId || 'SENT_NO_ID'
+      
+      // 更新本地记录：状态转为 sent，并存入流程 ID
+      const { error: updateError } = await supabase.from('perf_records')
         .update({ 
           sync_status: 'sent',
-          description: record.description + ` (流程ID: ${xftResult.xftResponse.body?.procInstId})`
+          proc_inst_id: procId,
+          description: record.description
         })
         .eq('id', dbData.id)
 
-      alert(`✅ 成功！薪福通流程已发起。\n实例ID: ${xftResult.xftResponse.body?.procInstId}`)
+      alert(`✅ 提交成功！\n薪福通审批流程ID: ${procId}`)
       clearStaff()
     } else {
       throw new Error(xftResult.xftResponse?.errorMsg || "同步异常")
