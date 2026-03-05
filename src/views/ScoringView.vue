@@ -86,7 +86,7 @@
 
     <section class="bg-white p-7 rounded-[2rem] shadow-sm border border-gray-100 space-y-4">
       <label class="text-xs font-black text-purple-700 uppercase tracking-widest flex items-center gap-2">
-        <Edit3Icon :size="14" /> 3. 填写具体描述 (可选)
+        <Edit3Icon :size="14" /> 3. 填写具体描述
       </label>
       
       <div class="relative group">
