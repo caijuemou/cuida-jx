@@ -282,7 +282,7 @@ const submitScore = async () => {
       score_value: String(form.value.score), 
       score_impact: String(standardScore.value),
       description: `考核项: ${form.value.item_name}`,
-      detail_reason: '具体描述: ${form.value.description}',
+      detail_reason: `具体描述: ${form.value.description}`,
       record_date: form.value.date,
       sync_status: 'pending',
       proc_inst_id: null
