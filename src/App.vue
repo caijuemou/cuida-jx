@@ -1,10 +1,12 @@
 <template>
   <div class="min-h-screen bg-[#F8FAFC] font-sans antialiased text-slate-900">
     
-    <header v-if="!route.meta.hideNav && userInfo.name" 
+    <!-- 顶部导航栏 -->
+    <header v-if="!route.meta.hideNav && userInfo.name"
             class="bg-white/80 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100">
       <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         
+        <!-- 左侧Logo区域 -->
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl shadow-inner overflow-hidden border border-slate-100 bg-white">
             <img src="/logo.jpg" alt="Logo" class="w-full h-full object-cover" />
@@ -15,24 +17,30 @@
           </div>
         </div>
 
+        <!-- 导航菜单 -->
         <nav class="hidden md:flex items-center bg-slate-100/50 p-1 rounded-2xl border border-slate-200/50">
-          <router-link v-if="canAccessScoring" to="/" class="pc-nav-link" active-class="pc-active">
+          <!-- 绩效评分（仅限有权限用户） -->
+          <button v-if="canAccessScoring" @click="navigateTo('/')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/' }">
             <PenToolIcon :size="16" /> 绩效评分
-          </router-link>
+          </button>
           
-          <router-link to="/dashboard" class="pc-nav-link" active-class="pc-active">
+          <!-- 考核大屏（所有用户） -->
+          <button @click="navigateTo('/dashboard')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/dashboard' }">
             <LayoutDashboardIcon :size="16" /> 考核大屏
-          </router-link>
+          </button>
 
-          <router-link v-if="!canAccessScoring" to="/history" class="pc-nav-link" active-class="pc-active">
+          <!-- 评分历史（仅限无评分权限用户） -->
+          <button v-if="!canAccessScoring" @click="navigateTo('/history')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/history' }">
             <ClipboardListIcon :size="16" /> 评分历史
-          </router-link>
+          </button>
 
-          <router-link v-if="isSuperAdmin" to="/admin" class="pc-nav-link" active-class="pc-active">
+          <!-- 系统管理（仅限超级管理员） -->
+          <button v-if="isSuperAdmin" @click="navigateTo('/admin')" class="pc-nav-link" :class="{ 'pc-active': $route.path === '/admin' }">
             <SettingsIcon :size="16" /> 系统管理
-          </router-link>
+          </button>
         </nav>
 
+        <!-- 用户信息和退出按钮 -->
         <div class="flex items-center gap-4 border-l pl-6 border-slate-100">
           <div class="text-right hidden sm:block">
             <div class="text-xs font-black text-slate-900 leading-none">{{ userInfo.name }}</div>
@@ -47,36 +55,40 @@
       </div>
     </header>
 
-    <nav v-if="!route.meta.hideNav && userInfo.name" 
+    <!-- 移动端底部导航 -->
+    <nav v-if="!route.meta.hideNav && userInfo.name"
          class="md:hidden fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] px-4 w-full max-w-fit">
       <div class="bg-slate-900/90 backdrop-blur-2xl p-2 rounded-[2.5rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/10 flex items-center gap-1">
         
-        <router-link v-if="canAccessScoring" to="/" class="dock-link" active-class="dock-active">
+        <!-- 评分（仅限有权限用户） -->
+        <button v-if="canAccessScoring" @click="navigateTo('/')" class="dock-link" :class="{ 'dock-active': $route.path === '/' }">
           <PenToolIcon :size="20" />
-        </router-link>
+        </button>
 
-        <div v-if="canAccessScoring" class="dock-divider"></div>
-
+        <!-- 评分历史（仅限无评分权限用户） -->
         <template v-if="!canAccessScoring">
-          <router-link to="/history" class="dock-link" active-class="dock-active">
+          <button @click="navigateTo('/history')" class="dock-link" :class="{ 'dock-active': $route.path === '/history' }">
             <ClipboardListIcon :size="20" />
-          </router-link>
+          </button>
           <div class="dock-divider"></div>
         </template>
 
-        <router-link to="/dashboard" class="dock-link" active-class="dock-active">
+        <!-- 考核大屏（所有用户） -->
+        <button @click="navigateTo('/dashboard')" class="dock-link" :class="{ 'dock-active': $route.path === '/dashboard' }">
           <LayoutDashboardIcon :size="20" />
-        </router-link>
+        </button>
 
+        <!-- 系统管理（仅限超级管理员） -->
         <template v-if="isSuperAdmin">
           <div class="dock-divider"></div>
-          <router-link to="/admin" class="dock-link" active-class="dock-active">
+          <button @click="navigateTo('/admin')" class="dock-link" :class="{ 'dock-active': $route.path === '/admin' }">
             <SettingsIcon :size="20" />
-          </router-link>
+          </button>
         </template>
       </div>
     </nav>
 
+    <!-- 主内容区域 -->
     <main :class="{ 'max-w-7xl mx-auto pt-6 px-4 pb-32 md:pb-12': !route.meta.hideNav }">
       <router-view v-slot="{ Component }">
         <transition name="page-fade" mode="out-in">
@@ -84,20 +96,50 @@
         </transition>
       </router-view>
     </main>
+
+    <!-- 权限不足提示 -->
+    <div v-if="showPermissionDenied" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div class="bg-red-50 border border-red-200 rounded-[2.5rem] p-6 text-center max-w-md w-full">
+      <AlertTriangleIcon class="mx-auto h-12 w-12 text-red-400 mb-4" />
+        <h3 class="text-lg font-black text-red-800 mb-2">权限不足</h3>
+        <p class="text-sm text-red-600 mb-4">您没有访问该页面的权限</p>
+        <button @click="handlePermissionDeniedClose" class="px-4 py-2 bg-red-600 text-white rounded-xl font-black hover:bg-red-700 transition-all">
+          返回
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { 
-  LogOutIcon, PenToolIcon, LayoutDashboardIcon, 
-  SettingsIcon, ClipboardListIcon 
+import {
+  LogOutIcon, PenToolIcon, LayoutDashboardIcon,
+  SettingsIcon, ClipboardListIcon, AlertTriangleIcon
 } from 'lucide-vue-next';
+import {
+  canAccessScoring as checkCanAccessScoring,
+  isSuperAdmin as checkIsSuperAdmin,
+  canViewAllRecords as checkCanViewAllRecords,
+  canViewDeptRecords as checkCanViewDeptRecords,
+  canEditRecord as checkCanEditRecord,
+  canDeleteRecord as checkCanDeleteRecord,
+  getPermissionInfo,
+  isValidUser
+} from './utils/permissions';
 
 const route = useRoute();
 const router = useRouter();
 const userInfo = ref({});
+
+// 权限不足提示
+const showPermissionDenied = ref(false);
+
+// 编程式导航方法（避免被薪福通识别为外部链接）
+const navigateTo = (path) => {
+  router.push(path);
+};
 
 // 刷新用户信息逻辑
 const refreshUser = () => {
@@ -132,25 +174,61 @@ const refreshUser = () => {
   }
 };
 
-onMounted(refreshUser);
+// 检查页面权限
+const checkPagePermission = () => {
+  const currentPath = route.path.toLowerCase();
+  
+  // 检查是否需要权限
+  if (route.meta.requiresAuth && !isValidUser(userInfo.value)) {
+    router.replace('/login');
+    return false;
+  }
+  
+  // 检查特定页面的权限
+  switch (currentPath) {
+    case '/admin':
+      if (!checkIsSuperAdmin(userInfo.value)) {
+        showPermissionDenied.value = true;
+        return false;
+      }
+      break;
+    case '/':
+      if (!checkCanAccessScoring(userInfo.value)) {
+        router.replace('/history');
+        return false;
+      }
+      break;
+    case '/score':
+      if (!checkCanAccessScoring(userInfo.value)) {
+        router.replace('/history');
+        return false;
+      }
+      break;
+    default:
+      // 其他页面默认允许访问
+      break;
+  }
+  
+  return true;
+};
+
+onMounted(() => {
+  refreshUser();
+  checkPagePermission();
+});
 
 // 监听路由变化
 watch(() => route.path, (newPath) => {
   // 每次切页面都校准一次身份，防止手动清除 storage 绕过
   refreshUser();
+  checkPagePermission();
 });
 
-// --- 权限判定 (基于你 LoginView 存入的 staff 结构) ---
-const isSuperAdmin = computed(() => {
-  const dept = userInfo.value.dept_name || '';
-  const name = userInfo.value.name || '';
-  return dept.includes('管理组') || name === '蔡珏侔';
-});
-
-const canAccessScoring = computed(() => {
-  const job = userInfo.value.job_title || '';
-  return isSuperAdmin.value || job.includes('店经理') || job.includes('店长');
-});
+// --- 权限判定 (使用统一的权限工具函数) ---
+const isSuperAdmin = computed(() => checkIsSuperAdmin(userInfo.value));
+const canAccessScoring = computed(() => checkCanAccessScoring(userInfo.value));
+const canViewAllRecords = computed(() => checkCanViewAllRecords(userInfo.value));
+const permissionInfo = computed(() => getPermissionInfo(userInfo.value));
 
 const handleLogout = () => {
   if (confirm('确定要退出系统吗？')) {
@@ -161,10 +239,19 @@ const handleLogout = () => {
     // 2. 立即重置响应式数据，防止导航栏依然显示原信息
     userInfo.value = {};
     
-    // 3. 强制跳转到登录页
-    // 使用 window.location.href 而不是 router.push 可以彻底刷新应用状态
-    window.location.href = '/login';
+    // 3. 使用 Vue Router 跳转到登录页，保持路由状态一致
+    router.push('/login');
+    
+    // 4. 提示用户手动登出薪福通（由于跨域限制，无法自动登出）
+    setTimeout(() => {
+      alert('为了安全起见，请同时在薪福通应用或网页中退出您的账号。');
+    }, 500);
   }
+};
+
+const handlePermissionDeniedClose = () => {
+  showPermissionDenied.value = false;
+  router.go(-1);
 };
 </script>
 
@@ -215,6 +302,20 @@ const handleLogout = () => {
   height: 24px;
   background-color: rgba(255, 255, 255, 0.1);
   margin: 0 4px;
+}
+
+/* --- 权限不足提示样式 --- */
+.permission-denied {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
 }
 
 /* --- 页面过渡动画 --- */

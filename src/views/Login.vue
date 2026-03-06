@@ -28,9 +28,10 @@
             <div class="w-3 h-3 bg-red-600 rounded-sm"></div>
           </div>
           薪福通一键登录
-        </button>
+       </button>
 
-        <div class="mt-10 pt-8 border-t border-gray-50 flex flex-col items-center gap-2">
+
+       <div class="mt-10 pt-8 border-t border-gray-50 flex flex-col items-center gap-2">
           <span class="text-[10px] text-gray-300 font-black uppercase tracking-[0.2em] leading-none">
             Digital Identity Service
           </span>
@@ -50,9 +51,13 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from '../composables/useSupabase';
 import { ShieldCheckIcon, Loader2Icon } from 'lucide-vue-next';
+import { isSuperAdmin } from '../utils/permissions';
 
 const router = useRouter();
 const isProcessing = ref(false);
+
+// 调试：页面加载时立即记录
+console.log('Login.vue 组件加载', window.location.href);
 
 // 1. 发起登录
 const handleXFTLogin = () => {
@@ -70,17 +75,34 @@ const handleXFTLogin = () => {
   if (ENTERPRISE_ID) {
     authUrl += `&enterprise_id=${ENTERPRISE_ID}`;
   }
+  
   window.location.href = authUrl;
 };
 
 // 2. 处理回调
 onMounted(async () => {
-  const params = new URLSearchParams(window.location.search);
-  const data = params.get('data');
+  console.log('Login.vue onMounted 执行');
+  console.log('完整 URL:', window.location.href);
+  console.log('window.location.search:', window.location.search);
+  
+  // 优先从 sessionStorage 读取 data（因为 main.js 可能修改了 URL）
+  let data = sessionStorage.getItem('sso_data');
+  if (data) {
+    console.log('从 sessionStorage 读取到 data 参数');
+    sessionStorage.removeItem('sso_data'); // 使用后清理
+  } else {
+    // 尝试从 URL 读取
+    const params = new URLSearchParams(window.location.search);
+    console.log('URLSearchParams 实例:', params);
+    console.log('所有 URL 参数:', Object.fromEntries(params));
+    data = params.get('data');
+    console.log('URL 参数 data:', data);
+  }
 
   if (data) {
     isProcessing.value = true;
     try {
+      console.log('开始处理 SSO 数据');
       // 1. 解码
       const rawData = window.atob(data.replace(/-/g, '+').replace(/_/g, '/'));
       const uint8Array = new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
@@ -138,19 +160,25 @@ onMounted(async () => {
         console.warn('警告：该账号在系统中处于非激活状态');
       }
 
-      // 5. 存储并跳转
+      // 5. 确保用户标识字段存在 (兼容 staff_seq)
+      if (staff && staff.staff_seq && !staff.xft_user_id) {
+        staff.xft_user_id = staff.staff_seq;
+      }
+      
+      // 存储并跳转
+      console.log('存储的用户信息:', staff);
       localStorage.setItem('user_info', JSON.stringify(staff));
       
       // 清理 URL
       window.history.replaceState({}, document.title, window.location.pathname);
 
       // 角色跳转
-      const isSuper = staff.dept_name?.includes('管理组') || staff.name === '蔡珏侔';
-      if (isSuper) {
-        router.push('/admin');
-      } else {
-        router.push('/');
-      }
+            const isSuper = isSuperAdmin(staff);
+            if (isSuper) {
+              router.push('/admin');
+            } else {
+              router.push('/');
+            }
 
     } catch (err) {
       console.error('登录异常:', err);
