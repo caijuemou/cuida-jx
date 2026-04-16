@@ -249,7 +249,11 @@ const selectStaff = (s) => {
   form.value.staff_name = s.name
   form.value.store_name = s.dept_name
   const job = s.job_title || ''
+
+  const specialManagerIds = ['V0034', 'V0092', 'V003M', 'V00AI', 'V0072', 'V008W', 'V00AX', 'V0096']
+  
   isManagerMode.value = job.includes('店长') || job.includes('店经理')
+  specialManagerIds.includes(s.xft_user_id)
   clearItem(); closePicker();
 }
 
