@@ -141,10 +141,14 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { supabase } from '../composables/useSupabase'
 import {
-  SearchIcon, DownloadIcon, CheckCircleIcon, AlertCircleIcon, 
+  SearchIcon, DownloadIcon, CheckCircleIcon, AlertCircleIcon,
   RotateCwIcon, LoaderIcon, ClipboardListIcon
 } from 'lucide-vue-next'
 import * as XLSX from 'xlsx'
+import {
+  isSpecialManager,
+  loadSpecialManagers
+} from '../utils/permissions'
 
 const logs = ref([])
 const filterQuery = ref('')
@@ -158,7 +162,7 @@ const myJob = me.job_title || ''
 
 const roleLabel = computed(() => {
   if (myDept.includes('管理组') || myDept.includes('后勤')) return '权限: 全公司'
-  if (myJob.includes('店长')) return `权限: 门店管理`
+  if (myJob.includes('店长') || myJob.includes('店经理') || isSpecialManager(me.xft_user_id)) return `权限: 门店管理`
   return '权限: 个人绩效'
 })
 
@@ -187,12 +191,14 @@ const isLastMonth = computed(() => startDate.value === formatDate(new Date(now.g
 
 const loadLogs = async () => {
   loading.value = true
+  // 确保代理店长名单已加载，使本店视图判定包含 special_managers 表数据
+  await loadSpecialManagers()
   try {
     let query = supabase.from('perf_records').select('*')
 
     // 权限过滤逻辑
     const isOffice = ['管理组', '后勤', '人力', '行政', '总办'].some(kw => myDept.includes(kw))
-    const isManager = ['店长', '店经理', '负责人'].some(kw => myJob.includes(kw))
+    const isManager = ['店长', '店经理', '负责人'].some(kw => myJob.includes(kw)) || isSpecialManager(myVNumber)
 
     if (!isOffice) {
       if (isManager) {

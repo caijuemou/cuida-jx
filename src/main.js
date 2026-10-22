@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import './assets/tailwind.css'
 import App from './App.vue'
 import router from './router'
+import { loadSpecialManagers } from './utils/permissions'
 
 const app = createApp(App)
 
@@ -42,3 +43,6 @@ if (cmbTrackLib && typeof cmbTrackLib.init === 'function') {
 }
 
 app.use(router).mount('#app')
+
+// 预加载代理店长名单（不阻塞渲染；加载完成后导航栏与权限判定会自动响应式更新）
+loadSpecialManagers().catch(e => console.warn('[main] 代理店长名单预加载失败:', e))

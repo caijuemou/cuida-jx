@@ -7,7 +7,8 @@ import {
   canAccessScoring,
   isSuperAdmin,
   isValidUser,
-  getUserRole
+  getUserRole,
+  loadSpecialManagers
 } from '../utils/permissions'
 
 const routes = [
@@ -71,7 +72,10 @@ const router = createRouter({
 })
 
 // --- 全局路由守卫 ---
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
+  // 0. 确保代理店长名单已加载，使权限判定包含 special_managers 表数据
+  await loadSpecialManagers()
+
   // 1. 获取登录状态
   const localData = localStorage.getItem('user_info');
   let userInfo = null;

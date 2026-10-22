@@ -1,7 +1,40 @@
+import { ref } from 'vue'
+import { supabase } from '../composables/useSupabase'
+
 /**
  * 权限管理工具函数
  * 提供统一的权限检查逻辑
  */
+
+/**
+ * 代理店长（代班店经理）名单
+ * 唯一真源：Supabase 表 public.special_managers
+ * 由 supabase.com 上的 Edge Function `special-manager-sync` 从薪福通审批角色「店经理」(roleId 341616345051037700) 全量同步
+ * 与 job_title 中的「店长/店经理」同源（都来自数据库），无需硬编码兜底
+ */
+export const specialManagerSet = ref(new Set())
+let _specialManagersLoaded = false
+
+export const loadSpecialManagers = async () => {
+  if (_specialManagersLoaded) return
+  _specialManagersLoaded = true
+  try {
+    const { data, error } = await supabase
+      .from('special_managers')
+      .select('xft_user_id')
+    if (error) throw error
+    const ids = (data || []).map(r => r.xft_user_id).filter(Boolean)
+    specialManagerSet.value = new Set(ids)
+    console.log(`[special_managers] 已加载 ${ids.length} 人`)
+  } catch (err) {
+    console.warn('[special_managers] 加载失败，名单暂为空:', err.message)
+  }
+}
+
+export const isSpecialManager = (userId) => {
+  if (!userId) return false
+  return specialManagerSet.value.has(userId)
+}
 
 /**
  * 用户角色类型定义
@@ -21,15 +54,15 @@ export const UserRoles = {
 export const getUserRole = (userInfo) => {
   if (!userInfo || !userInfo.name) return UserRoles.UNKNOWN
   
-  const { job_title, dept_name, name } = userInfo
+  const { job_title, dept_name, name, xft_user_id } = userInfo
   
   // 超级管理员：管理组或特定人员
   if (dept_name?.includes('管理组') || name === '蔡珏侔') {
     return UserRoles.SUPER_ADMIN
   }
   
-  // 店长/店经理
-  if (job_title?.includes('店长') || job_title?.includes('店经理')) {
+  // 店长/店经理（含代理店经理：special_managers 表同步，与 job_title 同源）
+  if (job_title?.includes('店长') || job_title?.includes('店经理') || isSpecialManager(xft_user_id)) {
     return UserRoles.MANAGER
   }
   
@@ -221,7 +254,7 @@ export const isManagementGroup = (userInfo) => {
  */
 export const isStoreManager = (userInfo) => {
   if (!userInfo || !userInfo.job_title) return false
-  return userInfo.job_title.includes('店长') || userInfo.job_title.includes('店经理')
+  return userInfo.job_title.includes('店长') || userInfo.job_title.includes('店经理') || isSpecialManager(userInfo.xft_user_id)
 }
 
 /**

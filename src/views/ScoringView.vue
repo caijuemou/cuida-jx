@@ -23,7 +23,10 @@
         
         <div v-if="staffSearchResults.length > 0" class="absolute z-[70] w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
           <div v-for="s in staffSearchResults" :key="s.xft_user_id" @click="selectStaff(s)" class="p-4 hover:bg-indigo-50 cursor-pointer border-b border-gray-50 last:border-none">
-            <div class="font-bold text-gray-800">{{ s.name }}</div>
+            <div class="font-bold text-gray-800">
+              {{ s.name }}
+              <span v-if="isSpecialManager(s.xft_user_id)" class="ml-2 px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-500 text-[10px] font-black align-middle">代理店长</span>
+            </div>
             <div class="text-xs text-gray-400">{{ s.dept_name }} · {{ s.job_title }}</div>
           </div>
         </div>
@@ -33,7 +36,10 @@
         <div class="flex items-center">
           <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center mr-4 text-white shadow-lg"><UserIcon :size="20"/></div>
           <div>
-            <div class="font-black text-indigo-900 text-base">{{ form.staff_name }}</div>
+            <div class="font-black text-indigo-900 text-base">
+              {{ form.staff_name }}
+              <span v-if="isSpecialManager(form.staff_id)" class="ml-2 px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 text-[10px] font-black align-middle">代理店长</span>
+            </div>
             <div class="text-xs text-indigo-400 font-bold">{{ form.store_name }}</div>
           </div>
         </div>
@@ -132,6 +138,7 @@
                 <div class="flex flex-col">
                    <span class="group-hover:text-indigo-600">{{ typeof opt === 'string' ? opt : (opt.name || opt.sub_category) }}</span>
                    <span v-if="opt.job_title" class="text-[10px] text-slate-400">{{ opt.job_title }}</span>
+                   <span v-if="opt && opt.xft_user_id && isSpecialManager(opt.xft_user_id)" class="text-[10px] text-rose-400 font-black">代理店长</span>
                 </div>
                 <ChevronRightIcon :size="18" class="text-slate-300 group-hover:text-indigo-400" />
               </button>
@@ -154,7 +161,9 @@ import {
 } from 'lucide-vue-next'
 import {
   canAccessScoring as checkCanAccessScoring,
-  isRestrictedManager
+  isRestrictedManager,
+  isSpecialManager,
+  loadSpecialManagers
 } from '../utils/permissions'
 
 const router = useRouter()
@@ -192,6 +201,8 @@ const isReady = computed(() => form.value.staff_id && form.value.item_id)
 // --- 数据初始化 ---
 const loadData = async () => {
   if (!canAccessScoring.value) { router.push('/history'); return; }
+  // 加载代理店长名单（已加载则立即返回，不影响性能）
+  await loadSpecialManagers()
   try {
     const [staffRes, deptRes, itemsRes] = await Promise.all([
       supabase.from('staff_cache').select('*').eq('is_active', true),
@@ -250,10 +261,9 @@ const selectStaff = (s) => {
   form.value.store_name = s.dept_name
   const job = s.job_title || ''
 
-  const specialManagerIds = ['V00A1', 'V0092', 'V00A8', 'V00AI', 'V0072', 'V008W', 'V00AX', 'V0096', 'V00A8', 'V00AX']
-  
+  // 代理店经理（special_managers 表）与「店长/店经理」职位等同，均进入店长专项考核
   isManagerMode.value = job.includes('店长') || job.includes('店经理') ||
-  specialManagerIds.includes(s.xft_user_id)
+  isSpecialManager(s.xft_user_id)
   clearItem(); closePicker();
 }
 
