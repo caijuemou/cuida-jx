@@ -138,7 +138,7 @@
                 <div class="flex flex-col">
                    <span class="group-hover:text-indigo-600">{{ typeof opt === 'string' ? opt : (opt.name || opt.sub_category) }}</span>
                    <span v-if="opt.job_title" class="text-[10px] text-slate-400">{{ opt.job_title }}</span>
-                   <span v-if="opt && opt.xft_user_id && isSpecialManager(opt.xft_user_id)" class="text-[10px] text-rose-400 font-black">代理店长</span>
+                   <span v-if="opt && opt.xft_user_id && isSpecialManager(opt.xft_user_id)" class="text-[10px] text-rose-400 font-black">门店管理</span>
                 </div>
                 <ChevronRightIcon :size="18" class="text-slate-300 group-hover:text-indigo-400" />
               </button>
