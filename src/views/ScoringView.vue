@@ -25,7 +25,7 @@
           <div v-for="s in staffSearchResults" :key="s.xft_user_id" @click="selectStaff(s)" class="p-4 hover:bg-indigo-50 cursor-pointer border-b border-gray-50 last:border-none">
             <div class="font-bold text-gray-800">
               {{ s.name }}
-              <span v-if="isSpecialManager(s.xft_user_id)" class="ml-2 px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-500 text-[10px] font-black align-middle">代理店长</span>
+              <span v-if="isSpecialManager(s.xft_user_id)" class="ml-2 px-1.5 py-0.5 rounded-md bg-rose-50 text-rose-500 text-[10px] font-black align-middle">门店管理</span>
             </div>
             <div class="text-xs text-gray-400">{{ s.dept_name }} · {{ s.job_title }}</div>
           </div>
@@ -38,7 +38,7 @@
           <div>
             <div class="font-black text-indigo-900 text-base">
               {{ form.staff_name }}
-              <span v-if="isSpecialManager(form.staff_id)" class="ml-2 px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 text-[10px] font-black align-middle">代理店长</span>
+              <span v-if="isSpecialManager(form.staff_id)" class="ml-2 px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-600 text-[10px] font-black align-middle">门店管理</span>
             </div>
             <div class="text-xs text-indigo-400 font-bold">{{ form.store_name }}</div>
           </div>
