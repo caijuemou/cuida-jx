@@ -163,8 +163,7 @@ import {
   canAccessScoring as checkCanAccessScoring,
   isRestrictedManager,
   isSpecialManager,
-  loadSpecialManagers,
-  isExcludedFromManagerScope
+  loadSpecialManagers
 } from '../utils/permissions'
 
 const router = useRouter()
@@ -181,6 +180,7 @@ const form = ref({
 
 const allItems = ref([])
 const staffTree = ref({})
+const allDepts = ref([])
 const submitting = ref(false)
 const searchStaffQuery = ref('')
 const staffSearchResults = ref([])
@@ -215,15 +215,17 @@ const loadData = async () => {
     ])
 
     const userIsRestricted = isRestrictedManager(userInfo.value)
+    allDepts.value = deptRes.data || []
 
     const tree = {}
     staffRes.data?.forEach(s => {
-      // 受限店长（店长/店经理）：排除公司管理组、后勤组、钉钉人员，其余全部可见
-      // （等效当前厦门区域；外地新区域建在根下会自动纳入）。
-      // 超级管理员（管理组/蔡珏侔）不受限，可见全部。
-      if (userIsRestricted && isExcludedFromManagerScope(s)) return
       const deptInfo = deptRes.data?.find(d => d.name === s.dept_name)
       const pathParts = deptInfo?.name_path?.split('/') || []
+
+      // 受限店长：总部/职能部门层级（name_path 段数<=2，含根公司名与根下直属部门）
+      // 一律排除；其余全部可见（等效当前厦门区域，外地新区域建在根下会自动纳入）。
+      // 超级管理员（管理组/蔡珏侔）不受限，可见全部。
+      if (userIsRestricted && pathParts.length <= 2) return
 
       let region, district, store
       if (pathParts.length <= 2) {
@@ -251,12 +253,23 @@ const handleStaffSearch = async () => {
     .or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`)
     .limit(10)
 
-  // 受限店长：搜索排除公司管理组、后勤组、钉钉人员，其余全部可见（与选择树一致）
+  // 受限店长：搜索排除"总部/职能部门层级"（name_path 段数<=2，含根公司名与根下直属部门），
+  // 与选择树逻辑一致；其余全部可见（外地新区域建在根下会自动纳入）。
   if (isRestrictedManager(userInfo.value)) {
-    query = query
-      .not('dept_name', 'eq', '公司管理组')
-      .not('dept_name', 'eq', '后勤组')
-      .not('dept_name', 'eq', '钉钉人员')
+    const depts = allDepts.value
+    const hqNames = (depts && depts.length
+      ? depts
+      : (await supabase.from('dept_cache').select('*')).data || []
+    ).filter(d => (d.name_path?.split('/').length ?? 0) <= 2).map(d => d.name)
+    if (hqNames.length) {
+      query = query.not('dept_name', 'in', `(${hqNames.map(n => `"${n}"`).join(',')})`)
+    } else {
+      // 兜底：dept_cache 未就绪时仍按已知三部门排除，避免越权可见
+      query = query
+        .not('dept_name', 'eq', '公司管理组')
+        .not('dept_name', 'eq', '后勤组')
+        .not('dept_name', 'eq', '钉钉人员')
+    }
   }
 
   const { data } = await query
