@@ -163,7 +163,8 @@ import {
   canAccessScoring as checkCanAccessScoring,
   isRestrictedManager,
   isSpecialManager,
-  loadSpecialManagers
+  loadSpecialManagers,
+  isExcludedFromManagerScope
 } from '../utils/permissions'
 
 const router = useRouter()
@@ -198,6 +199,9 @@ const standardScore = ref(0)
 const canAccessScoring = computed(() => checkCanAccessScoring(userInfo.value))
 const isReady = computed(() => form.value.staff_id && form.value.item_id)
 
+// 店长可考核范围改为「排除特定部门」策略（见 loadData / handleStaffSearch），
+// 不再依赖 myDept / myScopeDeptIds 的本店或关联门店限制。
+
 // --- 数据初始化 ---
 const loadData = async () => {
   if (!canAccessScoring.value) { router.push('/history'); return; }
@@ -210,20 +214,19 @@ const loadData = async () => {
       supabase.from('scoring_items').select('*').eq('is_active', true)
     ])
 
-    const myInfo = staffRes.data?.find(s => s.xft_user_id === userInfo.value.xft_user_id)
     const userIsRestricted = isRestrictedManager(userInfo.value)
-    const myDept = myInfo?.dept_name
 
     const tree = {}
     staffRes.data?.forEach(s => {
-      if (userIsRestricted && s.dept_name !== myDept) return
+      // 受限店长（店长/店经理）：排除公司管理组、后勤组、钉钉人员，其余全部可见
+      // （等效当前厦门区域；外地新区域建在根下会自动纳入）。
+      // 超级管理员（管理组/蔡珏侔）不受限，可见全部。
+      if (userIsRestricted && isExcludedFromManagerScope(s)) return
       const deptInfo = deptRes.data?.find(d => d.name === s.dept_name)
       const pathParts = deptInfo?.name_path?.split('/') || []
-      
+
       let region, district, store
-      if (userIsRestricted) {
-        region = '本门店'; district = myDept; store = s.dept_name
-      } else if (pathParts.length <= 2) {
+      if (pathParts.length <= 2) {
         region = '总部/职能部门'; district = s.dept_name; store = s.dept_name
       } else {
         region = pathParts[1] || '其他区域'; district = pathParts[2] || '其他网点'; store = s.dept_name
@@ -243,10 +246,20 @@ const loadData = async () => {
 // --- 搜索与选择逻辑 ---
 const handleStaffSearch = async () => {
   if (searchStaffQuery.value.length < 1) return staffSearchResults.value = []
-  const { data } = await supabase.from('staff_cache')
+  let query = supabase.from('staff_cache')
     .select('*').eq('is_active', true)
     .or(`name.ilike.%${searchStaffQuery.value}%,xft_user_id.ilike.%${searchStaffQuery.value}%`)
     .limit(10)
+
+  // 受限店长：搜索排除公司管理组、后勤组、钉钉人员，其余全部可见（与选择树一致）
+  if (isRestrictedManager(userInfo.value)) {
+    query = query
+      .not('dept_name', 'eq', '公司管理组')
+      .not('dept_name', 'eq', '后勤组')
+      .not('dept_name', 'eq', '钉钉人员')
+  }
+
+  const { data } = await query
   staffSearchResults.value = data || []
 }
 

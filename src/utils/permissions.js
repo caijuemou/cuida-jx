@@ -13,6 +13,8 @@ import { supabase } from '../composables/useSupabase'
  * 与 job_title 中的「店长/店经理」同源（都来自数据库），无需硬编码兜底
  */
 export const specialManagerSet = ref(new Set())
+// 代理店长 -> 可考核部门 ID 列表（与 staff_cache.dept_id 同套短码；空数组表示用本店兜底）
+export const specialManagerDepts = ref({})
 let _specialManagersLoaded = false
 
 export const loadSpecialManagers = async () => {
@@ -21,14 +23,31 @@ export const loadSpecialManagers = async () => {
   try {
     const { data, error } = await supabase
       .from('special_managers')
-      .select('xft_user_id')
+      .select('xft_user_id, dep_id_list')
     if (error) throw error
-    const ids = (data || []).map(r => r.xft_user_id).filter(Boolean)
+    const ids = []
+    const map = {}
+    ;(data || []).forEach(r => {
+      if (!r.xft_user_id) return
+      ids.push(r.xft_user_id)
+      map[r.xft_user_id] = Array.isArray(r.dep_id_list) ? r.dep_id_list : []
+    })
     specialManagerSet.value = new Set(ids)
+    specialManagerDepts.value = map
     console.log(`[special_managers] 已加载 ${ids.length} 人`)
   } catch (err) {
+    // 失败后复位标志，允许下次调用重试，避免首屏网络抖动导致名单永久为空
+    _specialManagersLoaded = false
     console.warn('[special_managers] 加载失败，名单暂为空:', err.message)
   }
+}
+
+// 返回某店长可考核的部门 ID 列表（与 staff_cache.dept_id 同套短码）。
+// 无记录 / 空数组 -> 返回 null，调用方改用「自己所在门店」兜底。
+export const getManagerDeptIds = (userInfo) => {
+  if (!userInfo || !userInfo.xft_user_id) return null
+  const list = specialManagerDepts.value[userInfo.xft_user_id]
+  return Array.isArray(list) && list.length > 0 ? list : null
 }
 
 export const isSpecialManager = (userId) => {
@@ -265,6 +284,23 @@ export const isStoreManager = (userInfo) => {
 export const isRestrictedManager = (userInfo) => {
   return isStoreManager(userInfo) && userInfo.dept_name !== '公司管理组'
 }
+
+/**
+ * 店长（受限店长）可考核范围需排除的部门
+ * 排除「公司管理组 / 后勤组 / 钉钉人员」这三个根下直属的职能部门，
+ * 等效于"当前厦门区域全部门店"；后续厦门以外的区域（如福州区域）建在根下后
+ * 会自动被纳入，无需再改代码。
+ * 注意：实际部门名是「后勤组」而非「后勤部」。
+ */
+export const MANAGER_SCOPE_EXCLUDED_DEPTS = ['公司管理组', '后勤组', '钉钉人员']
+
+/**
+ * 判断某员工是否属于店长可考核范围需排除的部门
+ * @param {Object} staff - 员工记录（需含 dept_name）
+ * @returns {boolean}
+ */
+export const isExcludedFromManagerScope = (staff) =>
+  !!staff && MANAGER_SCOPE_EXCLUDED_DEPTS.includes(staff.dept_name)
 
 /**
  * 检查用户是否可以查看指定部门的员工数据
