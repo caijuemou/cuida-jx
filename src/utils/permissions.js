@@ -272,8 +272,11 @@ export const isManagementGroup = (userInfo) => {
  * @returns {boolean} 是否是门店经理
  */
 export const isStoreManager = (userInfo) => {
-  if (!userInfo || !userInfo.job_title) return false
-  return userInfo.job_title.includes('店长') || userInfo.job_title.includes('店经理') || isSpecialManager(userInfo.xft_user_id)
+  if (!userInfo) return false
+  // 注意：必须用可选链 ?.，否则 job_title 为空串时 !userInfo.job_title 为真会直接 return false，
+  // 导致 special_managers 表里 job_title 为空（如测试员）的代理店长无法走到 isSpecialManager 兜底，
+  // 被误判为非店长、进而 isRestrictedManager=false、店长范围排除整段不执行。
+  return userInfo.job_title?.includes('店长') || userInfo.job_title?.includes('店经理') || isSpecialManager(userInfo.xft_user_id)
 }
 
 /**
