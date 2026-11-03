@@ -109,7 +109,12 @@ const fetchDashboardData = async () => {
     // 1. 基础统计计算
     let totalScore = 0
     const userSet = new Set()
-    const todayStr = new Date().toISOString().split('T')[0]
+    // 本地日期（避免 toISOString 的 UTC 偏移：中国凌晨 0-8 点会把今天算成昨天）
+    const fmtLocalDate = (d = new Date()) => {
+      const pad2 = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+    }
+    const todayStr = fmtLocalDate()
     let todayCount = 0
 
     // 2. 聚合图表数据
