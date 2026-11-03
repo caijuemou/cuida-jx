@@ -93,7 +93,7 @@
               <span class="text-xs font-black text-slate-500 uppercase">考核日期</span>
               <span class="text-[10px] text-gray-400 font-bold">默认今天，可选择更早日期</span>
             </div>
-            <input v-model="form.date" type="date" :max="todayStr"
+            <input v-model="form.date" type="date" :max="formatLocalDate()"
               class="bg-white rounded-xl border-2 border-emerald-100 px-3 py-2 text-sm font-black text-slate-700 focus:ring-0" />
           </div>
         </div>
@@ -181,16 +181,16 @@ const userInfo = ref(JSON.parse(localStorage.getItem('user_info') || '{}'))
 
 // --- 日期工具 ---
 // 本地日期 YYYY-MM-DD（不用 toISOString：那是 UTC，中国凌晨 0-8 点会得到昨天）
+// 每次调用都取实时当前日期，避免页面跨午夜后「今天」失真
 const formatLocalDate = (d = new Date()) => {
   const p = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
-const todayStr = formatLocalDate()   // 今天（本地），同时用作日期控件的 max（只能往前选）
 
 // --- 状态定义 ---
 const form = ref({ 
   staff_id: '', staff_name: '', store_name: '', 
-  date: todayStr, 
+  date: formatLocalDate(),   // 默认打分当日（本地日期）
   item_id: '', item_name: '', category_name: '', 
   score: 0, 
   description: '' // 新增关联描述字段
@@ -434,6 +434,7 @@ const clearStaff = () => {
   form.value.staff_id = ''; 
   form.value.staff_name = ''; 
   form.value.description = ''; // 重置描述
+  form.value.date = formatLocalDate(); // 新一轮考核：日期默认回到当前日期
   clearItem(); 
 }
 const clearItem = () => { 
