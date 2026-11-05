@@ -91,7 +91,7 @@
           <div class="flex items-center justify-between pt-4 mt-4 border-t border-emerald-100">
             <div class="flex flex-col">
               <span class="text-xs font-black text-slate-500 uppercase">考核日期</span>
-              <span class="text-[10px] text-gray-400 font-bold">默认今天，可选择更早日期</span>
+              <span class="text-[10px] text-gray-400 font-bold">可选择考核日期</span>
             </div>
             <input v-model="form.date" type="date" :max="formatLocalDate()"
               class="bg-white rounded-xl border-2 border-emerald-100 px-3 py-2 text-sm font-black text-slate-700 focus:ring-0" />
@@ -354,7 +354,7 @@ const submitScore = async () => {
       body: {
         staffId: form.value.staff_id,
         score: form.value.score,
-        desc: `【考核日期:${form.value.date}】【${form.value.category_name}】${form.value.item_name} (标准分:${standardScore.value}分)`,
+        desc: `【${form.value.category_name}】${form.value.item_name} (标准分:${standardScore.value}分)。 【考核日期:${form.value.date}】`,
         detailReason: form.value.description || '无具体描述',
         starterId: me.xft_user_id,
         recordDate: form.value.date   // ★ 考核日期，同步给薪福通流程表单的日期组件
