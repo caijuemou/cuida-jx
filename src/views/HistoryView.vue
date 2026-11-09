@@ -145,6 +145,7 @@ import {
   RotateCwIcon, LoaderIcon, ClipboardListIcon
 } from 'lucide-vue-next'
 import * as XLSX from 'xlsx'
+import { downloadExcel } from '../utils/exportExcel'
 import {
   isSpecialManager,
   loadSpecialManagers
@@ -243,7 +244,7 @@ const filteredLogs = computed(() => {
   })
 })
 
-const exportToExcel = () => {
+const exportToExcel = async () => {
   const exportData = filteredLogs.value.map(log => ({
     '日期': log.score_date,
     '姓名': log.staff_name,
@@ -257,7 +258,10 @@ const exportToExcel = () => {
   const ws = XLSX.utils.json_to_sheet(exportData)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "绩效考核台账")
-  XLSX.writeFile(wb, `绩效考核台账_${startDate.value}.xlsx`)
+  const fileName = `绩效考核台账_${startDate.value}.xlsx`
+
+  // 统一下载：桌面直接下载；iOS 走系统分享；移动端内嵌浏览器引导到外部浏览器
+  await downloadExcel(wb, fileName)
 }
 
 watch([startDate, endDate], loadLogs)

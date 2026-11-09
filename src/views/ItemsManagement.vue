@@ -175,6 +175,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { supabase } from '../composables/useSupabase'
 import { PlusIcon, Edit2Icon, Trash2Icon, FileSpreadsheetIcon, UserIcon, SearchIcon, FilterIcon, ChevronDownIcon, XIcon } from 'lucide-vue-next'
 import * as XLSX from 'xlsx'
+import { downloadExcel, formatLocalDate } from '../utils/exportExcel'
 
 // 状态定义
 const items = ref([])
@@ -303,7 +304,7 @@ const handleExcelUpload = (event) => {
 }
 
 // 导出功能逻辑
-const exportExcel = (role) => {
+const exportExcel = async (role) => {
   showExportMenu.value = false
   const exportData = items.value
     .filter(item => item.applicable_to === role)
@@ -319,9 +320,10 @@ const exportExcel = (role) => {
   const worksheet = XLSX.utils.json_to_sheet(exportData)
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, worksheet, "考核标准")
-  
-  const fileName = `${role === 'manager' ? '店长' : '员工'}标准导出_${new Date().toISOString().slice(0,10)}.xlsx`
-  XLSX.writeFile(workbook, fileName)
+
+  const fileName = `${role === 'manager' ? '店长' : '员工'}标准导出_${formatLocalDate()}.xlsx`
+  // 统一下载：桌面直接下载；iOS 走系统分享；移动端内嵌浏览器引导到外部浏览器
+  await downloadExcel(workbook, fileName)
 }
 
 // 其他弹窗控制
