@@ -5,17 +5,20 @@
 //      安卓会直接弹系统提示「抱歉，未找到浏览器」；
 //   2) iOS Safari 对 blob + a.download 不触发下载，会把 xlsx 的二进制当网页文本渲染（满屏乱码）；
 // 因此按运行环境分流：
-//   桌面浏览器    -> 直接下载（行为完全不变）
+//   桌面浏览器    -> 直接下载（行为完全不变，不经任何服务端）
 //   iOS / iPadOS  -> 系统分享面板，用户可「存储到文件」
 //   安卓标准浏览器 -> 直接下载到下载目录
-//   安卓 App 内嵌  -> Supabase Storage 签名直链（浏览器自己发起 https 请求 -> 系统原生下载）
-//   全部失败      -> 复制下载链接，提示在（电脑）浏览器打开
+//   安卓 App 内嵌  -> 表单 POST 到 Edge Function「export-perf」，由它返回 attachment 触发系统下载
+//   全部失败      -> 友好提示，引导到浏览器再导出
+//
+// 为什么用「表单 POST + Edge Function」而不是 Storage 直链：
+//   不需要建 bucket、不需要 RLS policy、不占存储配额，且 base64 走 POST body 没有 URL 长度限制。
 import * as XLSX from 'xlsx'
-import { supabase } from '../composables/useSupabase'
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-const EXPORT_BUCKET = 'exports'
-const SIGN_URL_TTL = 3600   // 签名链接有效期 1 小时
+
+// 导出函数（Edge Function），需在 supabase Dashboard 关闭其 Verify JWT
+const EXPORT_FN_URL = 'https://ubvhtmsqifyuhcjidirx.supabase.co/functions/v1/export-perf'
 
 const ua = () => navigator.userAgent || ''
 
@@ -56,62 +59,65 @@ const anchorDownload = (blob, fileName) => {
   setTimeout(() => URL.revokeObjectURL(url), 60000)
 }
 
-// Storage 的 object key 只允许安全字符，中文文件名改用 ASCII key，
-// 真正的中文文件名通过签名 URL 的 download 参数下发
-const safeKey = () => {
-  const stamp = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)
-  return `export_${stamp}_${Math.random().toString(36).slice(2, 8)}.xlsx`
-}
-
-/**
- * 上传到 Storage 并换取带下载响应头的签名直链。
- * 浏览器导航到该地址 -> 服务端返回 Content-Disposition: attachment -> 系统原生下载。
- * @returns {Promise<string|null>} 签名直链；任何环节失败返回 null（走后续降级）
- */
-const getStorageSignedLink = async (blob, fileName, userId) => {
-  try {
-    const key = `${userId ? userId + '/' : ''}${safeKey()}`
-    const { error: upErr } = await supabase.storage
-      .from(EXPORT_BUCKET)
-      .upload(key, blob, { contentType: XLSX_MIME, upsert: false })
-    if (upErr) {
-      console.warn('[export] Storage 上传失败（bucket 或 insert policy 未配置？）:', upErr.message)
-      return null
-    }
-    const { data, error: signErr } = await supabase.storage
-      .from(EXPORT_BUCKET)
-      .createSignedUrl(key, SIGN_URL_TTL, { download: fileName })
-    if (signErr) {
-      console.warn('[export] 生成签名链接失败:', signErr.message)
-      return null
-    }
-    return data?.signedUrl || null
-  } catch (err) {
-    console.warn('[export] Storage 直链异常:', err?.message)
-    return null
+// ArrayBuffer -> base64（分块处理，避免 String.fromCharCode 参数过多）
+const arrayBufferToBase64 = (buffer) => {
+  const bytes = new Uint8Array(buffer)
+  const chunk = 0x8000
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk))
   }
+  return btoa(binary)
 }
 
-const copyToClipboard = async (text) => {
+// 以「表单 POST」提交到导出函数。
+// 表单提交属于浏览器导航行为，响应带 Content-Disposition: attachment 时会直接触发下载，
+// 且不会离开当前页面（blob / data 方案都做不到这点）。
+const postFormDownload = (url, fields) => {
+  const form = document.createElement('form')
+  form.method = 'POST'
+  form.action = url
+  form.style.display = 'none'
+  Object.entries(fields).forEach(([name, value]) => {
+    const input = document.createElement('input')
+    input.type = 'hidden'
+    input.name = name
+    input.value = value
+    form.appendChild(input)
+  })
+  document.body.appendChild(form)
+  form.submit()
+  document.body.removeChild(form)
+}
+
+// 安卓 App 内：先探活确认函数可用，再提交表单
+const tryFunctionDownload = async (blob, fileName) => {
   try {
-    if (navigator.clipboard && window.isSecureContext) {
-      await navigator.clipboard.writeText(text)
-      return true
+    const probe = await fetch(EXPORT_FN_URL, { method: 'GET' })
+    if (!probe.ok) {
+      console.warn('[export] 导出函数探活失败:', probe.status)
+      return false
     }
-  } catch { /* 落到下面的 prompt */ }
+  } catch (err) {
+    console.warn('[export] 无法连接导出函数:', err?.message)
+    return false
+  }
   try {
-    window.prompt('请复制以下下载链接（在电脑浏览器中打开即可下载）：', text)
+    const contentBase64 = arrayBufferToBase64(await blob.arrayBuffer())
+    postFormDownload(EXPORT_FN_URL, { filename: fileName, contentBase64 })
     return true
-  } catch { return false }
+  } catch (err) {
+    console.warn('[export] 提交导出表单失败:', err?.message)
+    return false
+  }
 }
 
 /**
  * 导出 Excel（自动适配桌面 / iOS / 移动端内嵌浏览器）
  * @param {Object} workbook SheetJS workbook
  * @param {string} fileName 文件名（含 .xlsx）
- * @param {Object} [options] { userId } 用于 Storage 目录隔离
  */
-export const downloadExcel = async (workbook, fileName, options = {}) => {
+export const downloadExcel = async (workbook, fileName) => {
   const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
   const blob = new Blob([arrayBuffer], { type: XLSX_MIME })
 
@@ -134,7 +140,7 @@ export const downloadExcel = async (workbook, fileName, options = {}) => {
         return
       } catch (err) {
         if (err && err.name === 'AbortError') return   // 用户主动取消
-        // 其他失败（如手势失效）-> 继续往下走直链方案
+        // 其他失败（如手势失效）-> 继续往下走函数下载方案
       }
     }
   }
@@ -145,17 +151,9 @@ export const downloadExcel = async (workbook, fileName, options = {}) => {
     return
   }
 
-  // 4) 安卓 App 内嵌（薪福通/微信/企微/钉钉等）：走 Storage 签名直链
-  const link = await getStorageSignedLink(blob, fileName, options.userId)
-  if (link) {
-    const opened = window.open(link, '_blank')
-    if (opened) return                    // 新标签打开 -> 服务端返回 attachment -> 系统原生下载
-    const copied = await copyToClipboard(link)
-    if (copied) {
-      alert('下载链接已复制。\n\n请粘贴到浏览器（或电脑浏览器）中打开该链接，即可下载文件。')
-      return
-    }
-  }
+  // 4) 安卓 App 内嵌（薪福通/微信/企微/钉钉等）：表单 POST -> export-perf 返回附件
+  const submitted = await tryFunctionDownload(blob, fileName)
+  if (submitted) return
 
   // 5) 兜底：提示引导
   guideToExternalBrowser()
