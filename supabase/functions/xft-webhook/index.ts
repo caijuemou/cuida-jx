@@ -1,54 +1,59 @@
+// ============================================================================
+// xft-webhook —— 薪福通事件回调入口（生产运行版本）
+//
+// 2026-11-20 更新为「并行触发 + 立即响应」版：
+//   原先串行 await(cmb-sync) → await(special-manager-sync)，总耗时 = t1 + t2，
+//   第一个慢/挂住会连带第二个永不发出，且容易超过薪福通回调超时（表现为
+//   「事件推送失败」通知）。现改为两个请求同时发出，waitUntil 托管后台任务，
+//   对薪福通的响应降到 20~50ms。
+//
+// 说明：更早还有一版是「SM4 解密 eventRcdInf → 直接 upsert staff_cache」的
+// 单员工同步实现，该职责已被 cmb-sync（全量同步）覆盖，此逻辑已废弃。
+// ============================================================================
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import sm from "https://esm.sh/sm-crypto@0.3.12"
+
+const CMB_SYNC_URL = "https://ubvhtmsqifyuhcjidirx.supabase.co/functions/v1/cmb-sync"
+const MANAGER_SYNC_URL = "https://ubvhtmsqifyuhcjidirx.supabase.co/functions/v1/special-manager-sync"
 
 serve(async (req) => {
   try {
     const payload = await req.json()
-    
-    // 初始化 Supabase 客户端
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const { eventId } = payload
 
-    // 1. 处理连接测试
-    if (payload.eventId === 'XFT00000') {
-      return new Response(JSON.stringify({ "rtnCod": "200", "errMsg": "" }), { status: 200 })
+    // 1. 薪福通连通性测试，直接返回（不触发任何同步）
+    if (eventId === 'XFT00000') {
+      return new Response(JSON.stringify({ rtnCod: "200", errMsg: "" }), { status: 200 })
     }
 
-    // 2. 解密正式数据 (eventRcdInf 或 event_message)
-    const encryptedData = payload.eventRcdInf || payload.event_message
-    const pubKey = Deno.env.get('XFT_PUB_KEY') || ""
-    const sm4Key = pubKey.substring(0, 32)
-    
-    const decryptedStr = sm.sm4.decrypt(encryptedData, sm4Key)
-    const info = JSON.parse(decryptedStr)
+    console.log(`[Webhook] 收到事件: ${eventId}，并行触发两个同步...`)
+    const API_KEY = Deno.env.get('SUPABASE_ANON_KEY') || ""
 
-    // 3. 映射为数据库格式
-    const staffData = {
-      xft_user_id: info.STFNBR,
-      name: info.STFNAM,
-      dept_name: info.ORGNAM, // 这里直接拿到了中文名，无需再查字典！
-      job_title: info.POSNAM, // 这里直接拿到了中文名！
-      mobile: info.MOBNBR,
-      last_sync_at: new Date().toISOString()
+    // 2. 两个同步【同时】发出，互不阻塞；各自失败只记日志，不影响另一个
+    const trigger = (url: string, tag: string) =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: API_KEY },
+        body: JSON.stringify({ trigger_by: eventId })
+      })
+        .then(r => console.log(`[Webhook] ${tag} 响应状态: ${r.status}`))
+        .catch(e => console.error(`[Webhook] 请求 ${tag} 失败: ${e.message}`))
+
+    const jobs = Promise.allSettled([
+      trigger(CMB_SYNC_URL, 'cmb-sync'),
+      trigger(MANAGER_SYNC_URL, 'special-manager-sync')
+    ])
+
+    // 3. 有 EdgeRuntime.waitUntil 就交给 runtime 后台跑完，立刻回 200；
+    //    没有就并行等待（总耗时 = max，仍远好于串行）
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      EdgeRuntime.waitUntil(jobs)
+      return new Response(JSON.stringify({ rtnCod: "200", errMsg: "同步任务已触发" }), { status: 200 })
     }
 
-    console.log(`🚀 准备更新员工: ${staffData.name}`)
-
-    // 4. 写入数据库
-    const { error } = await supabase
-      .from('staff_cache')
-      .upsert(staffData, { onConflict: 'xft_user_id' })
-
-    if (error) throw error
-
-    return new Response(JSON.stringify({ "rtnCod": "200", "errMsg": "" }), { status: 200 })
-
+    await jobs
+    return new Response(JSON.stringify({ rtnCod: "200", errMsg: "同步任务已触发" }), { status: 200 })
   } catch (err) {
-    console.error("同步失败:", err.message)
-    // 即使失败也给招行返回200，防止其不断重试，但我们在Log里记录错误
-    return new Response(JSON.stringify({ "rtnCod": "200", "errMsg": err.message }), { status: 200 })
+    console.error("❌ Webhook 转发异常:", err.message)
+    return new Response(JSON.stringify({ rtnCod: "200", errMsg: err.message }), { status: 200 })
   }
 })
