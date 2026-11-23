@@ -260,8 +260,8 @@ const exportToExcel = async () => {
   XLSX.utils.book_append_sheet(wb, ws, "绩效考核台账")
   const fileName = `绩效考核台账_${startDate.value}.xlsx`
 
-  // 统一下载：桌面直接下载；iOS 走系统分享；移动端内嵌浏览器引导到外部浏览器
-  await downloadExcel(wb, fileName)
+  // 统一下载：桌面直接下载；iOS 走系统分享；安卓 App 内走 Storage 签名直链
+  await downloadExcel(wb, fileName, { userId: myVNumber })
 }
 
 watch([startDate, endDate], loadLogs)
