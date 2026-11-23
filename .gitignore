@@ -6,3 +6,7 @@ dist-ssr
 .env
 .env.*
 ! .env.example
+
+# Supabase Edge Functions 在 supabase.com 上直接维护，本地只做留档、不进版本库
+# （本地版本易与生产不同步，排查时反而误导）
+supabase/
