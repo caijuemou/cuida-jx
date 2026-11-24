@@ -1,0 +1,5 @@
+# SPA history 路由回退
+# 前端用的是 createWebHistory()，像 /history、/admin、/dashboard 这类路径
+# 并没有对应的物理文件，必须全部回退到 index.html 由 vue-router 接管。
+# 换到 EdgeOne Pages / CloudBase 等静态托管时靠这条生效（原先是 vercel.json 里的 rewrite）。
+/*    /index.html   200
