@@ -93,10 +93,19 @@ const tryFunctionDownload = async (blob, fileName) => {
 
     // 下载链接自己拼完整的：函数返回的 url 在边缘运行时里会缺 /functions/v1 前缀，不能直接用
     const downloadUrl = `${EXPORT_FN_URL}?token=${data.token}`
+
+    // 顺带把链接复制到剪贴板：App 内浏览器常常下载不了文件，
+    // 用户可以直接粘贴到外部浏览器重试（链接 1 小时内可重复下载）
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(downloadUrl)
+      }
+    } catch { /* 剪贴板不可用就忽略 */ }
+
     const opened = window.open(downloadUrl, '_blank')
     if (!opened) {
-      // 极少数环境拦截新标签：退回到当前页导航
-      window.location.href = downloadUrl
+      // 极少数环境拦截新标签：直接把链接显示出来让用户手动复制
+      window.prompt('请复制以下链接，在浏览器中打开即可下载（1 小时内有效）：', downloadUrl)
     }
     return true
   } catch (err) {
