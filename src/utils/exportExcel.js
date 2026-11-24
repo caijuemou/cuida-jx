@@ -114,49 +114,91 @@ const tryFunctionDownload = async (blob, fileName) => {
   }
 }
 
+// ---------- 导出中的遮罩反馈 ----------
+// 导出要经历「生成 xlsx -> 上传 -> 换 token -> 打开下载」，有网络等待；
+// 不给反馈用户会觉得「点了没反应」，所以弹一个遮罩并至少停留 1.2 秒。
+const OVERLAY_ID = '__export_busy_overlay__'
+const MIN_OVERLAY_MS = 1200
+
+const showBusyOverlay = (text = '正在生成报表，请稍候…') => {
+  const exist = document.getElementById(OVERLAY_ID)
+  if (exist) return
+  const el = document.createElement('div')
+  el.id = OVERLAY_ID
+  el.className = 'fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-sm'
+  el.innerHTML = `
+    <div class="bg-white rounded-[2rem] px-9 py-8 shadow-2xl flex flex-col items-center">
+      <svg class="animate-spin text-indigo-600 mb-4" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <div class="text-sm font-black text-slate-700">${text}</div>
+      <div class="text-[11px] text-slate-400 font-bold mt-1">正在准备下载，请勿关闭页面</div>
+    </div>`
+  document.body.appendChild(el)
+}
+
+const hideBusyOverlay = () => {
+  const el = document.getElementById(OVERLAY_ID)
+  if (el) el.remove()
+}
+
+// 保证遮罩至少显示 MIN_OVERLAY_MS，避免「一闪而过」的不跟手感
+const keepOverlayVisible = async (startedAt) => {
+  const elapsed = Date.now() - startedAt
+  if (elapsed < MIN_OVERLAY_MS) {
+    await new Promise(r => setTimeout(r, MIN_OVERLAY_MS - elapsed))
+  }
+  hideBusyOverlay()
+}
+
 /**
  * 导出 Excel（自动适配桌面 / iOS / 移动端内嵌浏览器）
  * @param {Object} workbook SheetJS workbook
  * @param {string} fileName 文件名（含 .xlsx）
  */
 export const downloadExcel = async (workbook, fileName) => {
-  const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
-  const blob = new Blob([arrayBuffer], { type: XLSX_MIME })
+  const startedAt = Date.now()
+  showBusyOverlay()
+  try {
+    const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+    const blob = new Blob([arrayBuffer], { type: XLSX_MIME })
 
-  // 1) 桌面浏览器：直接下载（保持原有行为）
-  if (!isMobileDevice()) {
-    if (navigator.msSaveBlob) {
-      navigator.msSaveBlob(blob, fileName)
+    // 1) 桌面浏览器：直接下载（保持原有行为）
+    if (!isMobileDevice()) {
+      if (navigator.msSaveBlob) {
+        navigator.msSaveBlob(blob, fileName)
+        return
+      }
+      anchorDownload(blob, fileName)
       return
     }
-    anchorDownload(blob, fileName)
-    return
-  }
 
-  // 2) iOS / iPadOS：系统分享面板保存到「文件」（不要用 blob 打开，否则会渲染成乱码）
-  if (isIOSDevice()) {
-    const file = new File([blob], fileName, { type: XLSX_MIME })
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: fileName })
-        return
-      } catch (err) {
-        if (err && err.name === 'AbortError') return   // 用户主动取消
-        // 其他失败（如手势失效）-> 继续往下走函数下载方案
+    // 2) iOS / iPadOS：系统分享面板保存到「文件」（不要用 blob 打开，否则会渲染成乱码）
+    if (isIOSDevice()) {
+      const file = new File([blob], fileName, { type: XLSX_MIME })
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: fileName })
+          return
+        } catch (err) {
+          if (err && err.name === 'AbortError') return   // 用户主动取消
+          // 其他失败（如手势失效）-> 继续往下走函数下载方案
+        }
       }
     }
+
+    // 3) 安卓标准浏览器：直接下载
+    if (/Chrome/i.test(ua()) && !isInnerBrowser()) {
+      anchorDownload(blob, fileName)
+      return
+    }
+
+    // 4) 安卓 App 内嵌（薪福通/微信/企微/钉钉等）：两步下载
+    //   fetch POST 换 token -> GET 打开下载链接
+    const submitted = await tryFunctionDownload(blob, fileName)
+    if (submitted) return
+
+    // 5) 兜底：提示引导
+    guideToExternalBrowser()
+  } finally {
+    await keepOverlayVisible(startedAt)
   }
-
-  // 3) 安卓标准浏览器：直接下载
-  if (/Chrome/i.test(ua()) && !isInnerBrowser()) {
-    anchorDownload(blob, fileName)
-    return
-  }
-
-  // 4) 安卓 App 内嵌（薪福通/微信/企微/钉钉等）：表单 POST -> export-perf 返回附件
-  const submitted = await tryFunctionDownload(blob, fileName)
-  if (submitted) return
-
-  // 5) 兜底：提示引导
-  guideToExternalBrowser()
 }
