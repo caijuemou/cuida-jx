@@ -92,7 +92,9 @@ const tryFunctionDownload = async (blob, fileName) => {
     }
 
     // GET 导航（外部浏览器 / 内置浏览器都能处理）
-    const downloadUrl = data.url || `${EXPORT_FN_URL}?token=${data.token}`
+    // 注意：函数返回的 url 可能是 http://，在 https 页面里会被浏览器按混合内容拦截，统一升成 https
+    const rawUrl = data.url || `${EXPORT_FN_URL}?token=${data.token}`
+    const downloadUrl = rawUrl.replace(/^http:\/\//, 'https://')
     const opened = window.open(downloadUrl, '_blank')
     if (!opened) {
       // 极少数环境拦截新标签：退回到当前页导航
