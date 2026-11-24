@@ -14,11 +14,13 @@
 // 为什么用「表单 POST + Edge Function」而不是 Storage 直链：
 //   不需要建 bucket、不需要 RLS policy、不占存储配额，且 base64 走 POST body 没有 URL 长度限制。
 import * as XLSX from 'xlsx'
+import { supabase } from '../composables/useSupabase'
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
-// 导出函数（Edge Function），需在 supabase Dashboard 关闭其 Verify JWT
-const EXPORT_FN_URL = 'https://ubvhtmsqifyuhcjidirx.supabase.co/functions/v1/export-perf'
+// 导出函数（Edge Function）。Verify JWT 需在 supabase Dashboard 关闭
+const EXPORT_FN = 'export-perf'
+const EXPORT_FN_URL = `https://ubvhtmsqifyuhcjidirx.supabase.co/functions/v1/${EXPORT_FN}`
 
 const ua = () => navigator.userAgent || ''
 
@@ -70,44 +72,35 @@ const arrayBufferToBase64 = (buffer) => {
   return btoa(binary)
 }
 
-// 以「表单 POST」提交到导出函数。
-// 表单提交属于浏览器导航行为，响应带 Content-Disposition: attachment 时会直接触发下载，
-// 且不会离开当前页面（blob / data 方案都做不到这点）。
-const postFormDownload = (url, fields) => {
-  const form = document.createElement('form')
-  form.method = 'POST'
-  form.action = url
-  form.style.display = 'none'
-  Object.entries(fields).forEach(([name, value]) => {
-    const input = document.createElement('input')
-    input.type = 'hidden'
-    input.name = name
-    input.value = value
-    form.appendChild(input)
-  })
-  document.body.appendChild(form)
-  form.submit()
-  document.body.removeChild(form)
-}
-
-// 安卓 App 内：先探活确认函数可用，再提交表单
+// 安卓 App 内：两步下载
+//   1) 跨域 fetch POST（带鉴权）把文件内容送到服务端，换一个短 token
+//   2) 用 GET 打开带 token 的下载链接 -> 服务端返回 attachment -> 系统原生下载
+// 为什么不用「表单 POST」：安卓 App 内嵌浏览器会拦截跨域表单提交，降级成
+//   「用外部浏览器打开」并丢掉 POST body（实际变成 GET，只会拿到探活 JSON）。
+// 为什么不用「GET 带内容」：base64 放进 URL 会让绩效数据进入网关与浏览器历史日志。
 const tryFunctionDownload = async (blob, fileName) => {
   try {
-    const probe = await fetch(EXPORT_FN_URL, { method: 'GET' })
-    if (!probe.ok) {
-      console.warn('[export] 导出函数探活失败:', probe.status)
+    const contentBase64 = arrayBufferToBase64(await blob.arrayBuffer())
+
+    const { data, error } = await supabase.functions.invoke(EXPORT_FN, {
+      body: { filename: fileName, contentBase64 }
+    })
+
+    if (error || !data?.token) {
+      console.warn('[export] 导出函数返回异常:', error?.message || JSON.stringify(data))
       return false
     }
-  } catch (err) {
-    console.warn('[export] 无法连接导出函数:', err?.message)
-    return false
-  }
-  try {
-    const contentBase64 = arrayBufferToBase64(await blob.arrayBuffer())
-    postFormDownload(EXPORT_FN_URL, { filename: fileName, contentBase64 })
+
+    // GET 导航（外部浏览器 / 内置浏览器都能处理）
+    const downloadUrl = data.url || `${EXPORT_FN_URL}?token=${data.token}`
+    const opened = window.open(downloadUrl, '_blank')
+    if (!opened) {
+      // 极少数环境拦截新标签：退回到当前页导航
+      window.location.href = downloadUrl
+    }
     return true
   } catch (err) {
-    console.warn('[export] 提交导出表单失败:', err?.message)
+    console.warn('[export] 调用导出函数失败:', err?.message)
     return false
   }
 }
