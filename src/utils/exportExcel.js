@@ -156,13 +156,15 @@ const keepOverlayVisible = async (startedAt) => {
  */
 export const downloadExcel = async (workbook, fileName) => {
   const startedAt = Date.now()
-  showBusyOverlay()
+  // 只有移动端显示遮罩：桌面端点击即下载，本地生成很快，加遮罩反而显得卡
+  const withOverlay = isMobileDevice()
+  if (withOverlay) showBusyOverlay()
   try {
     const arrayBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
     const blob = new Blob([arrayBuffer], { type: XLSX_MIME })
 
     // 1) 桌面浏览器：直接下载（保持原有行为）
-    if (!isMobileDevice()) {
+    if (!withOverlay) {
       if (navigator.msSaveBlob) {
         navigator.msSaveBlob(blob, fileName)
         return
@@ -199,6 +201,6 @@ export const downloadExcel = async (workbook, fileName) => {
     // 5) 兜底：提示引导
     guideToExternalBrowser()
   } finally {
-    await keepOverlayVisible(startedAt)
+    if (withOverlay) await keepOverlayVisible(startedAt)
   }
 }
