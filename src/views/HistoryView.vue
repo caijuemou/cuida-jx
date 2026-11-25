@@ -150,6 +150,7 @@ import {
   isSpecialManager,
   loadSpecialManagers
 } from '../utils/permissions'
+import { filterVisibleRecords } from '../utils/perfRecords'
 
 const logs = ref([])
 const filterQuery = ref('')
@@ -212,7 +213,8 @@ const loadLogs = async () => {
     const { data, error: queryError } = await query.order('record_date', { ascending: false })
     if (queryError) throw queryError
 
-    logs.value = (data || []).map(item => ({
+    // 剔除「卡住」的 pending 记录（提交中途断掉留下的垃圾），刚提交正在同步的仍正常显示
+    logs.value = filterVisibleRecords(data).map(item => ({
       id: item.id,
       final_score: item.score_value,
       score_date: item.record_date,

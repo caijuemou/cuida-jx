@@ -63,6 +63,7 @@ import { ref, onMounted, onUnmounted, markRaw } from 'vue'
 import { supabase } from '../composables/useSupabase'
 import * as echarts from 'echarts'
 import { ActivityIcon, UsersIcon, BarChart3Icon, ZapIcon } from 'lucide-vue-next'
+import { filterVisibleRecords } from '../utils/perfRecords'
 
 const currentTime = ref('')
 const barChartRef = ref(null)
@@ -90,16 +91,19 @@ const fetchDashboardData = async () => {
     console.log('正在从数据库获取数据...')
     const { data, error } = await supabase
       .from('perf_records')
-      .select('score_value, target_dept_name, category_label, record_date, target_user_id')
+      .select('score_value, target_dept_name, category_label, record_date, target_user_id, sync_status, created_at')
 
     if (error) {
       console.error('数据库读取失败:', error.message)
       return
     }
 
-    console.log('获取到的记录数:', data?.length || 0)
+    // 剔除「卡住」的 pending 记录（提交中途断掉留下的垃圾），否则会污染统计
+    const visibleData = filterVisibleRecords(data)
 
-    if (!data || data.length === 0) {
+    console.log('获取到的记录数:', visibleData?.length || 0)
+
+    if (!visibleData || visibleData.length === 0) {
       hasData.value = false
       return
     }
@@ -121,7 +125,7 @@ const fetchDashboardData = async () => {
     const storeMap = {}
     const categoryMap = {}
 
-    data.forEach(log => {
+    visibleData.forEach(log => {
       // 处理文本类型的分值，只提取数字部分
       const rawScore = log.score_value ? String(log.score_value).replace(/[^0-9.-]/g, '') : '0'
       const val = Math.abs(parseFloat(rawScore) || 0)
